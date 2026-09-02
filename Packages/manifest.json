@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.unity.feature.development": "1.0.2",
-    "com.unity.inputsystem": "1.19.0",
+    "com.unity.inputsystem": "1.20.0",
     "com.unity.learn.iet-framework": "6.0.6",
     "com.unity.multiplayer.center": "1.0.1",
     "com.unity.render-pipelines.universal": "17.3.0",
@@ -47,6 +47,25 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
-  }
+    "com.unity.modules.xr": "1.0.0",
+    "com.unity.ai.assistant": "2.19.0-pre.2",
+    "com.ivanmurzak.unity.mcp.probuilder": "1.2.31",
+    "com.ivanmurzak.unity.mcp.navigation": "1.0.17",
+    "com.ivanmurzak.unity.mcp.animation": "1.2.32",
+    "com.ivanmurzak.unity.mcp.terrain": "1.0.17"
+  },
+  "scopedRegistries": [
+    {
+      "name": "package.openupm.com",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.ivanmurzak.unity.mcp",
+        "com.ivanmurzak.unity.mcp.animation",
+        "com.ivanmurzak.unity.mcp.navigation",
+        "com.ivanmurzak.unity.mcp.probuilder",
+        "com.ivanmurzak.unity.mcp.terrain",
+        "extensions.unity.playerprefsex"
+      ]
+    }
+  ]
 }
