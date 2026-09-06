@@ -104,26 +104,32 @@ namespace Forage
                 Debug.LogWarning("[Forage] NavMesh missing; animals not spawned.");
                 return;
             }
-            for (int i = 0; i < rabbits; i++) SpawnRabbit(RandomSpawn(10f, 35f));
-            for (int i = 0; i < squirrels; i++) SpawnSquirrel(RandomSpawn(8f, 30f));
-            for (int i = 0; i < deer; i++) SpawnDeer(RandomSpawn(18f, 45f));
-            SpawnFox(RandomSpawn(20f, 40f));
-            SpawnBear(RandomSpawn(45f, 70f));
+            // each species is placed in the habitat it would really use
+            for (int i = 0; i < rabbits; i++)
+                SpawnRabbit(ZoneSpawn(10f, 32f, Habitat.Zone.Meadow, Habitat.Zone.Woodland));
+            for (int i = 0; i < squirrels; i++)
+                SpawnSquirrel(ZoneSpawn(8f, 30f, Habitat.Zone.Woodland, Habitat.Zone.DeepWoods));
+            for (int i = 0; i < deer; i++)
+                SpawnDeer(ZoneSpawn(18f, 45f, Habitat.Zone.Meadow));
+            SpawnFox(ZoneSpawn(20f, 40f, Habitat.Zone.Woodland, Habitat.Zone.Meadow));
+            SpawnBear(ZoneSpawn(38f, 62f, Habitat.Zone.DeepWoods, Habitat.Zone.Woodland));
 
             // snake ambush zones spread across the map, species assigned per zone
+            // snake ambush zones sit in habitat that suits each species:
+            // brown snakes bask on meadow edges, pythons and tree snakes in cover
             var forest = ForestGenerator.Instance;
             var rand = new System.Random(forest != null ? forest.seed + 31337 : 1);
             for (int i = 0; i < snakeZones; i++)
             {
-                float a = (float)rand.NextDouble() * Mathf.PI * 2f;
-                float r = 12f + (float)rand.NextDouble() * 55f;
-                float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                float y = forest != null ? forest.HeightAt(x, z) : 0f;
-                _snakeZones.Add(new SnakeZone
-                {
-                    center = new Vector3(x, y, z),
-                    species = SnakeSpecies.All[i % SnakeSpecies.All.Length]
-                });
+                var sp = SnakeSpecies.All[i % SnakeSpecies.All.Length];
+                var zones = sp.name.Contains("Brown")
+                    ? new[] { Habitat.Zone.Meadow, Habitat.Zone.Woodland }
+                    : sp.name.Contains("Python")
+                        ? new[] { Habitat.Zone.DeepWoods, Habitat.Zone.Woodland }
+                        : new[] { Habitat.Zone.Waterside, Habitat.Zone.Woodland };
+
+                if (!Habitat.TryFindSpot(rand, 12f, forest.worldSize * 0.4f, out var pos, zones)) continue;
+                _snakeZones.Add(new SnakeZone { center = pos, species = sp });
             }
         }
 
@@ -159,6 +165,19 @@ namespace Forage
                     zone.cooldownUntil = Time.time + 20f;
                 }
             }
+        }
+
+        /// <summary>Spawn point inside a species' habitat, snapped to the NavMesh.</summary>
+        Vector3 ZoneSpawn(float minR, float maxR, params Habitat.Zone[] zones)
+        {
+            var rand = new System.Random(Random.Range(0, int.MaxValue));
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                if (!Habitat.TryFindSpot(rand, minR, maxR, out var pos, zones)) continue;
+                if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var hit, 5f, UnityEngine.AI.NavMesh.AllAreas))
+                    return hit.position;
+            }
+            return RandomSpawn(minR, maxR); // fall back to anywhere walkable
         }
 
         Vector3 RandomSpawn(float minR, float maxR)

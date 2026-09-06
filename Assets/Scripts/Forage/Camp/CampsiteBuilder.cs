@@ -86,46 +86,51 @@ namespace Forage
             var assets = ForageAssets.Instance;
             var rand = new System.Random(forest.seed + 6060);
 
-            // (species, fact, poisonous, cap material, funnel shape)
-            var species = new (string name, string fact, bool poison, Material cap, bool funnel)[]
+            // Each species grows where it really would — so learning "where to
+            // look" is part of the lesson, not just "what it looks like".
+            var species = new (string name, string fact, bool poison, Material cap, bool funnel,
+                Habitat.Zone[] zones, string where)[]
             {
                 ("Field Mushroom",
-                 "Brown gills under a smooth cream cap and a pleasant mushroomy smell. A classic safe find — but always check for pale deadly lookalikes before eating.",
-                 false, assets.capBrown, false),
+                 "Brown gills under a smooth cream cap and a pleasant mushroomy smell. Grows in open grassy meadows. A classic safe find — but always check for pale deadly lookalikes.",
+                 false, assets.capBrown, false,
+                 new[]{ Habitat.Zone.Meadow }, "open meadows"),
+
                 ("Chanterelle",
-                 "Golden and funnel-shaped, with blunt ridges (not true gills) running down the stem, and a faint apricot smell. A prized safe forage.",
-                 false, assets.capYellow, true),
+                 "Golden and funnel-shaped, with blunt ridges (not true gills) running down the stem, and a faint apricot smell. Loves damp mossy ground near water.",
+                 false, assets.capYellow, true,
+                 new[]{ Habitat.Zone.Waterside }, "damp ground near the pond"),
+
                 ("Fly Agaric",
-                 "The bright red warning cap. Eating it causes sweating, nausea and delirium. In the wild, bright colors often mean 'leave me alone'.",
-                 true, assets.capRed, false),
+                 "The bright red warning cap with white warts, found under birch and pine. Eating it causes sweating, nausea and delirium. Bright colors often mean 'leave me alone'.",
+                 true, assets.capRed, false,
+                 new[]{ Habitat.Zone.Woodland }, "under woodland trees"),
+
                 ("Death Cap",
-                 "Pale, greenish-white and innocent-looking — this one causes most fatal mushroom poisonings in the world. If you are not 100% certain, never eat a pale wild mushroom.",
-                 true, assets.capPale, false),
+                 "Pale, greenish-white and innocent-looking, hiding in deep shade near oaks — this causes most fatal mushroom poisonings in the world. Never eat a pale wild mushroom.",
+                 true, assets.capPale, false,
+                 new[]{ Habitat.Zone.DeepWoods, Habitat.Zone.Woodland }, "deep shaded woods"),
             };
-            // weighted: more field mushrooms, and the deceptive death cap is common enough to matter
             int[] weights = { 8, 5, 6, 7 };
 
             for (int s = 0; s < species.Length; s++)
             {
+                var sp = species[s];
+                int placed = 0;
                 for (int i = 0; i < weights[s]; i++)
                 {
-                    // mushrooms grow in the woods: bias toward denser forest
-                    for (int tries = 0; tries < 15; tries++)
-                    {
-                        float a = (float)rand.NextDouble() * Mathf.PI * 2f;
-                        float r = 6f + (float)rand.NextDouble() * 55f;
-                        float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                        if (UnityEngine.Vector2.Distance(new Vector2(x, z), forest.pondCenter) < forest.pondRadius + 1f) continue;
-                        if ((float)rand.NextDouble() > forest.DensityAt(x, z) + 0.35f) continue;
+                    if (!Habitat.TryFindSpot(rand, forest.campRadius + 2f, forest.worldSize * 0.42f,
+                            out var pos, sp.zones))
+                        continue;
 
-                        var sp = species[s];
-                        var shroom = ItemFactory.Mushroom(forest.seed + 600 + s * 100 + i,
-                            sp.name, sp.fact, sp.poison, sp.cap, sp.funnel);
-                        shroom.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.05f, z);
-                        shroom.transform.rotation = Quaternion.Euler(0, (float)rand.NextDouble() * 360f, 0);
-                        break;
-                    }
+                    var shroom = ItemFactory.Mushroom(forest.seed + 600 + s * 100 + i,
+                        sp.name, sp.fact, sp.poison, sp.cap, sp.funnel);
+                    shroom.transform.position = pos + Vector3.up * 0.05f;
+                    shroom.transform.rotation = Quaternion.Euler(0, (float)rand.NextDouble() * 360f, 0);
+                    shroom.GetComponent<Mushroom>().habitatNote = sp.where;
+                    placed++;
                 }
+                Debug.Log($"[Forage] {sp.name}: {placed} placed in {sp.where}");
             }
         }
 
