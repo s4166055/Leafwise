@@ -31,6 +31,18 @@ namespace Forage
             agent.SetDestination(RandomPoint(transform.position, 12f));
         }
 
+        /// <summary>Small solid-colour blob helper for eyes and detail parts.</summary>
+        static void Blob(Transform parent, string name, float radius, Color color, Vector3 localPos, int seed)
+        {
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.SetColor("_BaseColor", color);
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(radius, 1, 0.03f, seed, Vector3.one);
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+
         void BuildBody()
         {
             var lit = Shader.Find("Universal Render Pipeline/Lit");
@@ -41,38 +53,105 @@ namespace Forage
             root.SetParent(transform, false);
             SetBody(root);
 
-            // torso
+            var pale = new Material(lit); pale.SetColor("_BaseColor", new Color(0.82f, 0.76f, 0.66f));
+
+            // deep chest tapering to a narrower rump, with a visible shoulder
             var torso = new GameObject("Torso");
             torso.transform.SetParent(root, false);
-            torso.transform.localPosition = new Vector3(0, 0.85f, 0);
-            torso.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.34f, 1, 0.05f, GetInstanceID(), new Vector3(0.75f, 0.8f, 1.5f));
+            torso.transform.localPosition = new Vector3(0, 0.88f, 0.02f);
+            torso.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.3f, 2, 0.04f, GetInstanceID(), new Vector3(0.72f, 0.9f, 1.6f));
             torso.AddComponent<MeshRenderer>().sharedMaterial = hide;
 
-            // legs
+            var shoulder = new GameObject("Shoulder");
+            shoulder.transform.SetParent(root, false);
+            shoulder.transform.localPosition = new Vector3(0, 0.95f, 0.28f);
+            shoulder.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.24f, 1, 0.04f, GetInstanceID() + 40, new Vector3(0.85f, 0.9f, 0.95f));
+            shoulder.AddComponent<MeshRenderer>().sharedMaterial = hide;
+
+            var rump = new GameObject("Rump");
+            rump.transform.SetParent(root, false);
+            rump.transform.localPosition = new Vector3(0, 0.93f, -0.3f);
+            rump.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.23f, 1, 0.04f, GetInstanceID() + 41, new Vector3(0.85f, 0.95f, 0.9f));
+            rump.AddComponent<MeshRenderer>().sharedMaterial = hide;
+
+            var belly = new GameObject("Belly");
+            belly.transform.SetParent(root, false);
+            belly.transform.localPosition = new Vector3(0, 0.75f, 0.02f);
+            belly.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.21f, 1, 0.04f, GetInstanceID() + 42, new Vector3(0.7f, 0.5f, 1.5f));
+            belly.AddComponent<MeshRenderer>().sharedMaterial = pale;
+
+            // white scut tail
+            var tail = new GameObject("Tail");
+            tail.transform.SetParent(root, false);
+            tail.transform.localPosition = new Vector3(0, 1.0f, -0.46f);
+            tail.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.06f, 1, 0.06f, GetInstanceID() + 43, new Vector3(0.8f, 1.3f, 0.6f));
+            tail.AddComponent<MeshRenderer>().sharedMaterial = pale;
+
+            // legs: thigh + slender cannon bone + dark hoof, angled like a deer's
             for (int i = 0; i < 4; i++)
             {
-                var leg = new GameObject("Leg" + i);
-                leg.transform.SetParent(root, false);
-                leg.transform.localPosition = new Vector3(i % 2 == 0 ? -0.14f : 0.14f, 0.8f, i < 2 ? 0.32f : -0.34f);
-                leg.transform.localRotation = Quaternion.Euler(180f, 0, 0);
-                leg.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothTube(0.045f, 0.03f, 0.8f, 5, 1, 0.01f, GetInstanceID() + i, 1f);
-                leg.AddComponent<MeshRenderer>().sharedMaterial = dark;
+                bool front = i < 2;
+                float side = i % 2 == 0 ? -1f : 1f;
+                float zPos = front ? 0.3f : -0.32f;
+
+                var thigh = new GameObject("Thigh" + i);
+                thigh.transform.SetParent(root, false);
+                thigh.transform.localPosition = new Vector3(side * 0.13f, 0.62f, zPos);
+                thigh.AddComponent<MeshFilter>().sharedMesh =
+                    NatureFactory.SmoothBlob(0.085f, 1, 0.04f, GetInstanceID() + 50 + i, new Vector3(0.6f, 1.5f, 0.85f));
+                thigh.AddComponent<MeshRenderer>().sharedMaterial = hide;
+
+                var cannon = new GameObject("Cannon" + i);
+                cannon.transform.SetParent(root, false);
+                cannon.transform.localPosition = new Vector3(side * 0.13f, 0.46f, zPos + (front ? -0.02f : 0.03f));
+                cannon.transform.localRotation = Quaternion.Euler(180f, 0, 0);
+                cannon.AddComponent<MeshFilter>().sharedMesh =
+                    NatureFactory.SmoothTube(0.028f, 0.02f, 0.42f, 5, 1, 0.01f, GetInstanceID() + i, 1f);
+                cannon.AddComponent<MeshRenderer>().sharedMaterial = hide;
+
+                var hoof = new GameObject("Hoof" + i);
+                hoof.transform.SetParent(root, false);
+                hoof.transform.localPosition = new Vector3(side * 0.13f, 0.035f, zPos + (front ? -0.02f : 0.03f));
+                hoof.AddComponent<MeshFilter>().sharedMesh =
+                    NatureFactory.SmoothBlob(0.032f, 1, 0.03f, GetInstanceID() + 60 + i, new Vector3(0.8f, 1f, 1.1f));
+                hoof.AddComponent<MeshRenderer>().sharedMaterial = dark;
             }
 
-            // neck + head (neck pivots for graze/alert poses)
-            _neck = new GameObject("Neck").transform;
+            // Neck rig: the pivot sits at the shoulder and carries a neck that
+            // already leans forward, with the head at its tip. Rotating the
+            // pivot alone swings the whole head cleanly between grazing and
+            // alert — the previous rig rotated the mesh about its own base and
+            // drove the head through the body into the ground.
+            _neck = new GameObject("NeckPivot").transform;
             _neck.SetParent(root, false);
-            _neck.localPosition = new Vector3(0, 1.02f, 0.45f);
+            _neck.localPosition = new Vector3(0, 1.02f, 0.34f);
+
             var neckMesh = new GameObject("NeckMesh");
             neckMesh.transform.SetParent(_neck, false);
-            neckMesh.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothTube(0.09f, 0.07f, 0.5f, 6, 1, 0.03f, GetInstanceID() + 9, 1f);
+            neckMesh.transform.localRotation = Quaternion.Euler(22f, 0, 0); // leans forward from the shoulder
+            neckMesh.AddComponent<MeshFilter>().sharedMesh =
+                NatureFactory.SmoothTube(0.085f, 0.062f, 0.46f, 6, 2, 0.02f, GetInstanceID() + 9, 1f);
             neckMesh.AddComponent<MeshRenderer>().sharedMaterial = hide;
 
+            // head rides at the tip of that lean
             var head = new GameObject("Head");
             head.transform.SetParent(_neck, false);
-            head.transform.localPosition = new Vector3(0, 0.52f, 0.05f);
-            head.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.12f, 1, 0.05f, GetInstanceID() + 10, new Vector3(0.7f, 0.75f, 1.35f));
+            head.transform.localPosition = new Vector3(0, 0.43f, 0.19f);
+            head.transform.localRotation = Quaternion.Euler(18f, 0, 0);
+            head.AddComponent<MeshFilter>().sharedMesh =
+                NatureFactory.SmoothBlob(0.105f, 1, 0.04f, GetInstanceID() + 10, new Vector3(0.72f, 0.75f, 1.4f));
             head.AddComponent<MeshRenderer>().sharedMaterial = hide;
+
+            var muzzle = new GameObject("Muzzle");
+            muzzle.transform.SetParent(head.transform, false);
+            muzzle.transform.localPosition = new Vector3(0, -0.03f, 0.11f);
+            muzzle.AddComponent<MeshFilter>().sharedMesh =
+                NatureFactory.SmoothBlob(0.055f, 1, 0.04f, GetInstanceID() + 44, new Vector3(0.8f, 0.7f, 1.2f));
+            muzzle.AddComponent<MeshRenderer>().sharedMaterial = dark;
+
+            for (int e = 0; e < 2; e++)
+                Blob(head.transform, "Eye", 0.014f, new Color(0.06f, 0.05f, 0.04f),
+                    new Vector3((e == 0 ? -1f : 1f) * 0.072f, 0.028f, 0.03f), GetInstanceID() + 45 + e);
 
             // ears + simple antlers
             for (int i = 0; i < 2; i++)
@@ -178,11 +257,12 @@ namespace Forage
             if (s != State.Watch) _observeTimer = 0f;
         }
 
+        /// <summary>Head down to the grass, or up and watchful.</summary>
         void PoseNeck(bool grazing)
         {
             if (_neck == null) return;
-            var target = grazing ? Quaternion.Euler(105f, 0, 0) : Quaternion.Euler(18f, 0, 0);
-            _neck.localRotation = Quaternion.Slerp(_neck.localRotation, target, Time.deltaTime * 4f);
+            var target = grazing ? Quaternion.Euler(58f, 0, 0) : Quaternion.Euler(-12f, 0, 0);
+            _neck.localRotation = Quaternion.Slerp(_neck.localRotation, target, Time.deltaTime * 3.5f);
         }
     }
 }
