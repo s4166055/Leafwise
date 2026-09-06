@@ -1,6 +1,6 @@
 # Forage (Leafwise) — Technical Documentation
 **Educational VR Survival Simulator for Meta Quest 3**
-RMIT Mixed Reality · Development log & system reference · September 2–3, 2026
+RMIT Mixed Reality · Development log & system reference · September 2–6, 2026
 Branch: `forage-prototype` · Unity **6000.3.21f1** · URP · OpenXR + Meta Quest Support
 
 ---
@@ -70,8 +70,9 @@ Everything else — terrain, trees, rocks, mushrooms, items, snakes, rabbits, fi
 ## 4. World Generation (the “realistic dense forest” pass)
 
 ### 4.1 Terrain
-- 180 m × 180 m smooth-shaded mesh, 110×110 grid, built from three octaves of Perlin noise (analytic `HeightField` — animals, props and the fall-guard all query the same function, no raycasts).
+- **144 m × 144 m** smooth-shaded mesh, 110×110 grid, built from three octaves of Perlin noise (analytic `HeightField` — animals, props and the fall-guard all query the same function, no raycasts).
 - Flat **camp clearing** (radius 9 m) at origin; **pond** (radius 8 m, ~1.4 m deep) at (24, 16).
+- **The clearing is a plateau, not a pit.** The camp blends to `CampLevel` — the terrain's own height at the origin (≈3.15 m) — rather than being multiplied toward y=0, which previously sank the whole camp ~3 m below the surrounding forest. Pond water height and the pot's scooping threshold are both derived from the generated pond, so nothing is pinned to a hard-coded height.
 - **Baked albedo** (1024²): moss under dense groves, dry grass in meadows, trampled dirt around camp, sand ring at the pond — driven by the same noise fields.
 - **Ground detail layer**: a tiling 256² grass-blade texture in URP Lit’s detail slot (~2 m repeat) so the ground holds up close-up.
 - Whole terrain is a `TeleportationArea` (Teleport interaction layer).
@@ -99,6 +100,22 @@ Everything else — terrain, trees, rocks, mushrooms, items, snakes, rabbits, fi
 
 ---
 
+### 4.4 Habitat zones — where things are found
+
+The world is divided into five zones derived from the terrain's density field, so the forest reads as an ecosystem and *learning where to look* becomes part of the lesson (`Habitat.cs`).
+
+| Zone | Where it is | What lives there |
+|---|---|---|
+| **Camp** | Inside the 9 m clearing | Kept clear of wildlife |
+| **Meadow** | Open, low tree density | Field Mushrooms · deer graze · brown snakes bask on the edges · flowers |
+| **Woodland** | Ordinary forest | Fly Agaric · squirrels · foxes · pythons |
+| **Deep Woods** | Dense canopy, >28 m from camp | Death Caps in the shade · the bear roams here |
+| **Waterside** | Within ~6 m of the pond | Chanterelles on damp margins · damp firewood · green tree snakes |
+
+Species are placed by searching only the zones that suit them; waterside species are searched around the pond rather than radially from camp.
+
+---
+
 ## 5. Survival Mechanics
 
 ### 5.1 Player vitals (`PlayerVitals`) — the health-bar rules
@@ -110,7 +127,26 @@ Everything else — terrain, trees, rocks, mushrooms, items, snakes, rabbits, fi
 | **Health** | Drains while any stat is 0 or while sick; instant hits: poison −15, Eastern Brown bite −16, Python bite −6 | Recovers ~2.5/min when everything is fine. **Floor = 5: weakness, never death** (education-first) |
 | **Sickness** | — | Dirty water (90 s), poisonous mushroom (120 s), venomous bite (75 s) |
 
-### 5.2 Fire — two authentic ignition methods
+### 5.2 HOW TO START A FIRE — step by step
+
+**1 · Gather tinder.** Straw-coloured **tinder bundles** lie around the camp clearing (4 of them). Point at one, squeeze **grip** to pick it up, and drop it inside the stone ring. *Without tinder nothing will ever catch — Scout will tell you so.*
+
+**2 · Gather dry wood.** Pick up **1–2 sticks** and drop them in the ring too. ⚠️ **Sticks lying near the pond are damp** — they only deliver a quarter of the heat. Damp fuel no longer ruins the fire permanently: the penalty scales with the wet-to-dry ratio, so piling on dry wood rescues it.
+
+**3 · Make a spark — pick either method.**
+
+| Method | What to do |
+|---|---|
+| **Flint & stone** *(fastest)* | Grab the **two flint stones** beside the fireboard, one in each hand, and strike them together **hard** directly over the pit. A solid hit (≥ 2.4 m/s) throws real sparks; **2–3 good strikes** ignite the tinder. Weak taps only spark faintly and Scout says "strike harder". |
+| **Hand drill** *(traditional)* | Grab the **drill stick**, press its tip onto the **fireboard**, and scrub back and forth **fast**. Heat builds with tip speed (up to 16/s) and the controller rumbles with the friction. Stop and it cools. |
+
+**4 · Watch the stages.** Heat 60 → **embers** (glow, heavy smoke). Heat 100 → **flames**, and the *Start a campfire* objective completes with a chime.
+
+**5 · Keep it alive.** Each stick burns ~150 s. **Add more wood while it's burning** and the fire physically grows — flame density rises from 95 to 260 particles, the light reaches 8 → 13 m, and the warmth radius widens 3.8 → 5.2 m. Let the fuel run out and it dies.
+
+**What the fire gives you:** warmth at night, boiling water safe to drink, cooking for mushrooms and fish, and it keeps bears away from camp.
+
+### 5.3 Fire — two authentic ignition methods
 **Shared state machine** (`FirePit`): Unlit → Ember (heat 60) → Burning (heat 100). Heat decays 7/s after a 1.2 s grace when you stop. Requires **tinder + at least one stick** dropped into the stone ring (trigger detects released items only).
 - **Hand drill**: grab the drill stick, press its tip on the fireboard, scrub fast. Tip speed → heat (16/s at full speed); friction haptics scale with speed; smoke appears past 20% heat; too slow → Scout hint.
 - **Flint & stone** (2 stones by the fireboard): strike them together **hard** (≥2.4 m/s relative impact) near the pit — spark burst + click + haptic; each good strike ≈ +40 heat, so **2–3 solid strikes** ignite. Weak strikes (≥1.3 m/s) spark faintly and hint “strike harder”.
@@ -132,7 +168,32 @@ Pick one up → a **color-coded name tag** appears on it (red “DO NOT EAT” /
 
 ---
 
-## 6. Wildlife — species, counts, and behavioral conditions
+## 6. HOW TO REACT TO EACH ANIMAL — the survival rules
+
+Every creature reacts to **how fast you move** and **how close you get**. The single rule underneath all of them: *calm, slow movement is safe; running is what causes trouble.* Running (Left Shift / thumbstick click) scares wildlife on purpose.
+
+| Animal | Found in | It notices you at | ✅ Do this | ❌ Not this |
+|---|---|---|---|---|
+| **Rabbit** ×3 | Meadow, woodland | 7 m | Stand still or creep in **under 0.7 m/s**. Hold that for 3 s and it approaches and **drops you dry firewood** | Move faster than 1.5 m/s — it bolts 12 m away |
+| **Squirrel** ×2 | Woodland, deep woods | 6 m | Watch from a distance — it bounds between trees | Walk within 6 m: it sprints for the nearest trunk and runs up it |
+| **Deer** ×2 | Meadows | 10 m | Watch quietly from **4–9 m** for 6 s, moving under 0.8 m/s → wildlife lesson complete | Rush it or come inside 3.5 m — it bolts at 7 m/s |
+| **Snake** (3 species, 7 ambush zones) | By species — see below | 2.6–4 m | **FREEZE.** It rears and hisses; hold still 4.5 s and it calms and leaves | Keep moving > 1.1 m/s for ~1 s and it **strikes** |
+| **Fox** ×1 | Woodland, meadow | Hunts food, not you | Keep mushrooms and fish **near the lit fire or inside the shelter** | Leave food lying on open ground — it's stolen |
+| **Bear** ×1 | Deep woods | 13 m | **Back away slowly** while facing it (under 1.2 m/s) for 4 s. A **burning campfire keeps it out of camp entirely** | **Never run.** Running within 11 m triggers a charge: −20 HP |
+
+**The three snakes** — spawn from hidden zones as you wander near (16 m), despawn when you leave (38 m):
+
+| Species | Habitat | Venom | Temperament | Bite |
+|---|---|---|---|---|
+| Eastern Brown Snake | meadow edges | **Yes** | Aggressive | −16 HP + 75 s sickness |
+| Carpet Python | deep woods | No | Defensive | −6 HP |
+| Green Tree Snake | pond margins | No | **Shy — flees from you** | — |
+
+**Mushrooms react too.** Walk within ~2.6 m of any mushroom and it gently lifts and sways to catch your eye, and Scout names the species *and the habitat it grows in* — so you learn to read the ground, not just the colour. Picking one up shows a red **DO NOT EAT** or green **edible** tag.
+
+---
+
+## 7. Wildlife — species, counts, and behavioral conditions
 
 All animals derive from `Animal`: NavMeshAgent movement over a **runtime-baked NavMeshSurface** (physics-collider geometry — tree trunks and rocks carve obstacles), horizontal-only player distance (head height ignored), awareness of **player speed** (smoothed head velocity from `GameManager.PlayerSpeed`), and a speed-synced procedural gait.
 
@@ -170,7 +231,7 @@ Fish (7) and crabs (3) as described in §4.3 — ambient, and groundwork for the
 
 ## 7. Locomotion, Comfort & Safety
 
-- **Sprint** (user request): hold **Left Shift** (simulator) or **click either thumbstick** (Quest). Walk 3 m/s, run 6 m/s — and running scares wildlife, tying movement into the education loop.
+- **Sprint:** hold **Left Shift** (simulator) or **click either thumbstick** (Quest). **Walk 12 m/s, run 22 m/s** — tripled from the original pace, and with the world 20% smaller a crossing takes ~12 s rather than ~45 s. Running still scares wildlife, tying movement into the education loop.
 - **SpawnGuard** — three-layer anti-fall system born from a real playtest bug:
   1. Rig spawns 1 m above ground and settles (never starts inside the terrain collider).
   2. **Head-ground clamp**: head tracking has no collision, so if the camera would sink into a hillside (simulator translate *or* physically walking into a slope on Quest) the whole rig rides up smoothly.
@@ -185,6 +246,7 @@ Fish (7) and crabs (3) as described in §4.3 — ambient, and groundwork for the
 |---|---|
 | **Wrist watch** (`WristHud`) | ~10 cm translucent panel on the left forearm: 4 labeled bars + current objective. Detailed readout on demand. |
 | **Glance strip** (`GlanceHud`) | Slim 4-bar strip floating low in view with **lazy follow** (VR-comfort safe, never head-locked). Auto-shows only when: any vital < 35, a vital just changed, you’re sick, or during the first 15 s. Fades away otherwise. |
+| **Scout companion** | A small firefly that stays **completely hidden while you explore** and only materialises beside a speech bubble when it has something to say — it was previously a large glowing orb parked in the middle of the view. Press **H** (or a controller face button) to ask about the current objective. |
 | **Fact cards** (`FactCard`) | Compact educational cards (species facts, encounter lessons, objective completions), accent-colored good/bad, gaze-offset placement, fade in/out, one at a time. |
 | **Mushroom tags** | World-space label on a held mushroom: red “DO NOT EAT” / green “edible”. |
 | **ScreenFeedback vignette** | Radial edge tint: red flash on damage, green on eating, blue on drinking, sickly pulse while poisoned. |
@@ -239,6 +301,18 @@ All development is driven and verified through the **Unity MCP relay** (Unity AI
 | `01d2423` | Tooling — MCP extensions (ProBuilder/Navigation/Animation/Terrain), 108 skills exported globally |
 | `7abdd24` | C5 — rabbits, 3 snake species + proximity zones, squirrels, full audio/haptics/vignette layer, sprint |
 | `5579a72` | HUD — lazy-follow glance strip + wrist watch placement |
+| *(history rewrite)* | Split into one commit per feature (23 `feat:` commits); the previous checkpoint history is preserved on `backup/checkpoint-history` |
+| `326d12c` | Fix — damp-wood penalty scales with wet/dry ratio instead of latching forever |
+| `1532e1b` | **Fix — camp and fire pit sat in a crater**; the clearing now flattens to the natural ground level. World 20% smaller (180 → 144 m) |
+| `1eacb19` | Movement 3× faster (walk 12 m/s, run 22 m/s) |
+| `5305ea6` | Warmer, denser fire — yellow-white core through orange |
+| `3776917` | Realistic rabbit — crouched hare build, haunches, lined ears, scut |
+| `31c7eaf` | **Fix — deer head was buried in the ground**; neck rig rebuilt on a shoulder pivot |
+| `b901bf8` | Bear anatomy — shoulder hump, jointed limbs, broad clawed paws |
+| `6d7f596` | Squirrel bounding scamper gait + startle-and-climb flee |
+| `fbd62ef` | Habitat zones — each species lives where it really would |
+| `8aebb48` | Mushrooms react as you approach; Scout names the species and its habitat |
+| `a057fab` | **Fix — Scout orb no longer floats in view as a white ball** |
 
 ---
 
