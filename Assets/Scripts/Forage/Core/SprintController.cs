@@ -12,8 +12,8 @@ namespace Forage
     /// </summary>
     public class SprintController : MonoBehaviour
     {
-        public float walkSpeed = 3.0f;
-        public float runSpeed = 6.0f;
+        public float walkSpeed = 4.0f;
+        public float runSpeed = 7.5f;
 
         [Header("Debug/testing")]
         public bool testForceSprint;

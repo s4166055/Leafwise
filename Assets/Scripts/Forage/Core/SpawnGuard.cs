@@ -15,7 +15,8 @@ namespace Forage
     {
         public Transform rig;
         public float fallMargin = 6f;
-        public float headClearance = 0.25f;
+        /// <summary>Keep the head this far above the ground — adult eye height.</summary>
+        public float headClearance = 1.5f;
 
         Transform _head;
         Vector3 _lastSafePos = new Vector3(0f, 1f, 0f);

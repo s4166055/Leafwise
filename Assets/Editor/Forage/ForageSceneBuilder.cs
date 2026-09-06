@@ -32,6 +32,9 @@ namespace Forage.EditorTools
             light.shadows = LightShadows.Soft;
             sun.transform.rotation = Quaternion.Euler(38f, -38f, 0f);
 
+            var dayNight = sun.AddComponent<DayNightCycle>();
+            dayNight.sun = light;
+
             RenderSettings.skybox = AssetDatabase.GetBuiltinExtraResource<Material>("Default-Skybox.mat");
             RenderSettings.sun = light;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
@@ -53,6 +56,23 @@ namespace Forage.EditorTools
             var rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab);
             rig.name = "XR Origin Rig";
             rig.transform.position = new Vector3(0f, 1f, 0f);
+
+            // stand the player at adult eye height (~1.7 m ≈ 5'7") instead of
+            // the device default, which sits low when there is no room-scale floor
+            var origin = rig.GetComponentInChildren<Unity.XR.CoreUtils.XROrigin>();
+            if (origin != null)
+            {
+                origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Device;
+                origin.CameraYOffset = 1.7f;
+                if (origin.CameraFloorOffsetObject != null)
+                    origin.CameraFloorOffsetObject.transform.localPosition = new Vector3(0f, 1.7f, 0f);
+            }
+            var characterController = rig.GetComponentInChildren<CharacterController>();
+            if (characterController != null)
+            {
+                characterController.height = 1.75f;
+                characterController.center = new Vector3(0f, 0.875f, 0f);
+            }
 
             // --- systems ---
             var systems = new GameObject("Forage Systems");
@@ -113,6 +133,7 @@ namespace Forage.EditorTools
             // sensory layer: audio ambience, feedback vignette, haptic hooks
             systems.AddComponent<AmbienceAndFeedback>();
             systems.AddComponent<SprintController>();
+            systems.AddComponent<SimulatorUiFix>();
             new GameObject("ScreenFeedback").AddComponent<ScreenFeedback>();
 
             // wildlife: NavMesh bake + rabbits, snakes, squirrels
@@ -139,6 +160,9 @@ namespace Forage.EditorTools
             // lazy-follow glance strip: shows itself when vitals are low or changing
             var glance = new GameObject("GlanceHud").AddComponent<GlanceHud>();
             glance.vitals = vitals;
+
+            // Scout: the visible AI companion voicing every hint
+            new GameObject("Scout").AddComponent<ScoutCompanion>();
 
             EnsureWaterTag();
             EnableXrSimulator();
