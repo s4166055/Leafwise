@@ -126,7 +126,37 @@ namespace Forage
             tail.transform.localRotation = Quaternion.Euler(0, 90, 0);
             tail.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(s * 0.45f, s * 0.7f, 4);
             tail.AddComponent<MeshRenderer>().sharedMaterial = fishMat;
+
+            // fishing: reach into the water and grab it!
+            var col = go.AddComponent<SphereCollider>();
+            col.radius = s * 1.9f;
+            var rb = go.AddComponent<Rigidbody>();
+            rb.isKinematic = true; // PondLife drives it while swimming
+            var grab = go.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            grab.movementType = UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable.MovementType.VelocityTracking;
+            grab.throwOnDetach = true;
+            var item = go.AddComponent<SurvivalItem>();
+            item.kind = ItemKind.Fish;
+            go.AddComponent<FishItem>();
+            var cook = go.AddComponent<Cookable>();
+            cook.cookSeconds = 12f;
+
+            var self = this;
+            grab.selectEntered.AddListener(_ =>
+            {
+                self.OnFishCaught(go.transform);
+                rb.isKinematic = false;
+                ProceduralAudio.PlayAt(go.transform.position, ProceduralAudio.Chirp(1), 0.4f);
+                Haptics.Pulse(0.5f, 0.2f);
+                ForageEvents.RaiseSignal("fish-caught");
+            });
             return go;
+        }
+
+        /// <summary>Stop simulating a fish that has been grabbed.</summary>
+        public void OnFishCaught(Transform fish)
+        {
+            _critters.RemoveAll(c => c.tf == fish);
         }
 
         GameObject BuildCrab(int i, System.Random rand)
