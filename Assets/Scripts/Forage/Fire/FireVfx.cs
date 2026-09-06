@@ -42,32 +42,44 @@ namespace Forage
         {
             var ps = NewSystem(parent, "Flame", ForageAssets.Instance.flame);
             var main = ps.main;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.7f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 1.3f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.3f);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.8f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.7f, 1.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.16f, 0.36f);
+            // hot yellow-white core through to orange — not the old red-heavy look
             main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(1f, 0.75f, 0.15f), new Color(1f, 0.35f, 0.05f));
+                new Color(1f, 0.95f, 0.55f), new Color(1f, 0.62f, 0.16f));
+            main.maxParticles = 600;
 
             var emission = ps.emission;
-            emission.rateOverTime = 55f;
+            emission.rateOverTime = 130f; // denser body of flame
 
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 12f;
-            shape.radius = 0.16f;
+            shape.angle = 14f;
+            shape.radius = 0.17f;
 
             var sol = ps.sizeOverLifetime;
             sol.enabled = true;
             sol.size = new ParticleSystem.MinMaxCurve(1f,
                 new AnimationCurve(new Keyframe(0, 0.7f), new Keyframe(0.35f, 1f), new Keyframe(1, 0.05f)));
 
+            // white-hot base -> yellow -> orange -> fading amber (no muddy red)
             var col = ps.colorOverLifetime;
             col.enabled = true;
             var grad = new Gradient();
             grad.SetKeys(
-                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(new Color(1f, 0.4f, 0.05f), 0.6f),
-                        new GradientColorKey(new Color(0.6f, 0.1f, 0.02f), 1f) },
-                new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.8f, 0.6f), new GradientAlphaKey(0f, 1f) });
+                new[]
+                {
+                    new GradientColorKey(new Color(1f, 0.98f, 0.82f), 0f),
+                    new GradientColorKey(new Color(1f, 0.85f, 0.32f), 0.35f),
+                    new GradientColorKey(new Color(1f, 0.55f, 0.12f), 0.72f),
+                    new GradientColorKey(new Color(0.85f, 0.33f, 0.06f), 1f)
+                },
+                new[]
+                {
+                    new GradientAlphaKey(0.95f, 0f), new GradientAlphaKey(0.9f, 0.55f),
+                    new GradientAlphaKey(0f, 1f)
+                });
             col.color = grad;
             return ps;
         }

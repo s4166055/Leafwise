@@ -63,7 +63,7 @@ namespace Forage
             _light.transform.SetParent(transform, false);
             _light.transform.localPosition = Vector3.up * 0.5f;
             _light.type = LightType.Point;
-            _light.color = new Color(1f, 0.55f, 0.2f);
+            _light.color = new Color(1f, 0.72f, 0.34f); // warm firelight, not red
             _light.range = 7f;
             _light.intensity = 0f;
             _light.shadows = LightShadows.None;
@@ -188,12 +188,12 @@ namespace Forage
             float t = Mathf.Clamp01((stickCount - 1) / 6f); // 1 stick = small, 7+ = roaring
 
             var flameEmission = _flame.emission;
-            flameEmission.rateOverTime = Mathf.Lerp(35f, 110f, t);
+            flameEmission.rateOverTime = Mathf.Lerp(95f, 260f, t);
             var flameMain = _flame.main;
             flameMain.startSize = new ParticleSystem.MinMaxCurve(
-                Mathf.Lerp(0.1f, 0.2f, t), Mathf.Lerp(0.25f, 0.5f, t));
+                Mathf.Lerp(0.14f, 0.24f, t), Mathf.Lerp(0.32f, 0.6f, t));
             flameMain.startSpeed = new ParticleSystem.MinMaxCurve(
-                Mathf.Lerp(0.5f, 0.9f, t), Mathf.Lerp(1.2f, 2.2f, t));
+                Mathf.Lerp(0.6f, 1.0f, t), Mathf.Lerp(1.4f, 2.4f, t));
 
             var emberEmission = _embers.emission;
             emberEmission.rateOverTime = Mathf.Lerp(8f, 24f, t);
@@ -250,9 +250,9 @@ namespace Forage
                         _light.intensity = 0.35f;
                         break;
                     case FireState.Burning:
-                        flameEmission.rateOverTime = 55;
-                        emberEmission.rateOverTime = 10;
-                        smokeEmission.rateOverTime = 10;
+                        flameEmission.rateOverTime = 130;
+                        emberEmission.rateOverTime = 14;
+                        smokeEmission.rateOverTime = 12;
                         break;
                 }
             }
