@@ -156,6 +156,38 @@ namespace Forage
             });
         }
 
+        /// <summary>Night crickets bed (looping).</summary>
+        public static AudioClip Crickets()
+        {
+            return Bake("crickets", 6f, (i, t) =>
+            {
+                // two interleaved chirp trains
+                float s = 0f;
+                float c1 = Mathf.Repeat(t, 0.7f);
+                if (c1 < 0.18f && Mathf.Sin(t * 0.9f) > -0.3f)
+                    s += Mathf.Sin(2f * Mathf.PI * 4200f * t) * Mathf.Sin(Mathf.PI * c1 / 0.18f) *
+                         (Mathf.Sin(2f * Mathf.PI * 38f * t) > 0 ? 1f : 0f) * 0.22f;
+                float c2 = Mathf.Repeat(t + 0.31f, 1.1f);
+                if (c2 < 0.14f && Mathf.Sin(t * 0.53f + 2f) > 0f)
+                    s += Mathf.Sin(2f * Mathf.PI * 3400f * t) * Mathf.Sin(Mathf.PI * c2 / 0.14f) *
+                         (Mathf.Sin(2f * Mathf.PI * 31f * t) > 0 ? 1f : 0f) * 0.18f;
+                return s;
+            }, loop: true);
+        }
+
+        /// <summary>Low bear growl (one-shot ~1.6s).</summary>
+        public static AudioClip Growl()
+        {
+            float lp = 0f;
+            return Bake("growl", 1.6f, (i, t) =>
+            {
+                lp = Mathf.Lerp(lp, Noise(), 0.04f);
+                float env = Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / 1.6f));
+                float rumble = Mathf.Sin(2f * Mathf.PI * (52f + Mathf.Sin(t * 9f) * 8f) * t);
+                return (rumble * 0.5f + lp * 1.6f) * env * 0.8f;
+            });
+        }
+
         /// <summary>Flint click/strike.</summary>
         public static AudioClip FlintClick()
         {
