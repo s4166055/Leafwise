@@ -13,9 +13,14 @@ namespace Forage
         public string speciesName;
         [TextArea] public string fact;
         public bool poisonous;
+        [Tooltip("Where this species grows — shown when the player notices it.")]
+        public string habitatNote = "the forest";
 
         public float eatDistance = 0.30f;
         public float eatHoldSeconds = 0.6f;
+
+        [Header("Proximity reaction")]
+        public float noticeDistance = 2.6f;
 
         XRGrabInteractable _grab;
         float _eatTimer;
@@ -29,6 +34,50 @@ namespace Forage
             {
                 _grab.selectEntered.AddListener(_ => ShowTag());
                 _grab.selectExited.AddListener(_ => HideTag());
+            }
+        }
+
+        bool _noticed;
+        Vector3 _restScale = Vector3.one;
+
+        /// <summary>
+        /// Foraging is about noticing. Walk close and the mushroom gently
+        /// "presents" itself — a small rise and a one-time Scout note naming
+        /// the species and where it grows — so players learn to read habitat,
+        /// not just colour.
+        /// </summary>
+        void ReactToProximity(GameManager gm)
+        {
+            bool held = _grab != null && _grab.isSelected;
+            if (held) return;
+
+            Vector3 p = gm.PlayerPosition;
+            float dist = Vector2.Distance(new Vector2(transform.position.x, transform.position.z),
+                                          new Vector2(p.x, p.z));
+
+            if (dist < noticeDistance)
+            {
+                // subtle lift + sway so it catches the eye in undergrowth
+                float t = 1f - Mathf.Clamp01(dist / noticeDistance);
+                float sway = Mathf.Sin(Time.time * 2.4f + transform.position.x) * 2.5f * t;
+                transform.localScale = Vector3.Lerp(transform.localScale, _restScale * (1f + t * 0.18f),
+                    Time.deltaTime * 5f);
+                transform.localRotation = Quaternion.Euler(sway, transform.localRotation.eulerAngles.y, 0f);
+
+                if (!_noticed && dist < noticeDistance * 0.65f)
+                {
+                    _noticed = true;
+                    ForageEvents.RaiseSignal("mushroom-noticed");
+                    var scout = FindFirstObjectByType<ScoutCompanion>();
+                    if (scout != null)
+                        scout.Say(poisonous
+                            ? $"Careful — that looks like {speciesName}. They grow in {habitatNote}. Read the tag before you touch your mouth."
+                            : $"That's {speciesName} — they grow in {habitatNote}. Looks like a safe find.");
+                }
+            }
+            else if (transform.localScale != _restScale)
+            {
+                transform.localScale = Vector3.Lerp(transform.localScale, _restScale, Time.deltaTime * 4f);
             }
         }
 
@@ -72,6 +121,8 @@ namespace Forage
         {
             var gm = GameManager.Instance;
             if (gm == null || gm.playerHead == null) return;
+
+            ReactToProximity(gm);
 
             bool held = _grab != null && _grab.isSelected;
             bool atMouth = Vector3.Distance(transform.position, gm.playerHead.position) < eatDistance;
