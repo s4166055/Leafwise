@@ -25,7 +25,17 @@ namespace Forage
         public float heat;
         public int tinderCount;
         public int stickCount;
-        public bool hasWetWood;
+        public int wetStickCount;
+        public bool hasWetWood => wetStickCount > 0;
+
+        /// <summary>
+        /// Heat multiplier from fuel dampness. All dry = 1.0, all damp = 0.25.
+        /// Scaling by ratio (rather than a sticky flag) means piling on dry
+        /// wood recovers a damp pit — the lesson stays, the dead end doesn't.
+        /// </summary>
+        public float DryFactor => stickCount == 0
+            ? 1f
+            : Mathf.Lerp(1f, 0.25f, (float)wetStickCount / stickCount);
 
         public bool IsLit => state == FireState.Burning;
 
@@ -81,7 +91,7 @@ namespace Forage
                         heat = 0;
                         stickCount = 0;
                         tinderCount = 0;
-                        hasWetWood = false;
+                        wetStickCount = 0;
                         ForageEvents.RaiseSignal("fire-out");
                     }
                     break;
@@ -113,7 +123,7 @@ namespace Forage
             }
             if (hasWetWood)
             {
-                amount *= 0.25f;
+                amount *= DryFactor;
                 if (heat > 15f) TryHint("wood-damp");
             }
 
@@ -133,7 +143,7 @@ namespace Forage
             else if (item.kind == ItemKind.Stick)
             {
                 stickCount++;
-                if (item.isWet) hasWetWood = true;
+                if (item.isWet) wetStickCount++;
                 // feeding a burning fire extends and enlarges it
                 if (state == FireState.Burning)
                 {
