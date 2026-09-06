@@ -71,14 +71,60 @@ namespace Forage
                 ear.AddComponent<MeshRenderer>().sharedMaterial = fur;
             }
 
+            // the shoulder hump — the single most recognisable bear feature
+            var hump = new GameObject("Hump");
+            hump.transform.SetParent(_torso, false);
+            hump.transform.localPosition = new Vector3(0, 0.36f, 0.2f);
+            hump.AddComponent<MeshFilter>().sharedMesh =
+                NatureFactory.SmoothBlob(0.3f, 1, 0.05f, GetInstanceID() + 70, new Vector3(0.85f, 0.7f, 0.9f));
+            hump.AddComponent<MeshRenderer>().sharedMaterial = fur;
+
+            var rump = new GameObject("Rump");
+            rump.transform.SetParent(_torso, false);
+            rump.transform.localPosition = new Vector3(0, 0.02f, -0.5f);
+            rump.AddComponent<MeshFilter>().sharedMesh =
+                NatureFactory.SmoothBlob(0.42f, 1, 0.05f, GetInstanceID() + 71, new Vector3(0.9f, 0.9f, 0.8f));
+            rump.AddComponent<MeshRenderer>().sharedMaterial = fur;
+
+            // heavy limbs: thick upper leg, shorter lower leg, broad flat paw
+            var clawMat = new Material(lit); clawMat.SetColor("_BaseColor", new Color(0.12f, 0.1f, 0.09f));
             for (int i = 0; i < 4; i++)
             {
-                var leg = new GameObject("Leg" + i);
-                leg.transform.SetParent(root, false);
-                leg.transform.localPosition = new Vector3(i % 2 == 0 ? -0.26f : 0.26f, 0.65f, i < 2 ? 0.38f : -0.4f);
-                leg.transform.localRotation = Quaternion.Euler(180f, 0, 0);
-                leg.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothTube(0.13f, 0.1f, 0.65f, 6, 1, 0.01f, GetInstanceID() + 5 + i, 1f);
-                leg.AddComponent<MeshRenderer>().sharedMaterial = fur;
+                bool front = i < 2;
+                float side = i % 2 == 0 ? -1f : 1f;
+                float zPos = front ? 0.4f : -0.42f;
+
+                var upper = new GameObject("UpperLeg" + i);
+                upper.transform.SetParent(root, false);
+                upper.transform.localPosition = new Vector3(side * 0.28f, 0.62f, zPos);
+                upper.AddComponent<MeshFilter>().sharedMesh =
+                    NatureFactory.SmoothBlob(0.19f, 1, 0.05f, GetInstanceID() + 80 + i, new Vector3(0.75f, 1.25f, 0.9f));
+                upper.AddComponent<MeshRenderer>().sharedMaterial = fur;
+
+                var lower = new GameObject("LowerLeg" + i);
+                lower.transform.SetParent(root, false);
+                lower.transform.localPosition = new Vector3(side * 0.28f, 0.3f, zPos);
+                lower.transform.localRotation = Quaternion.Euler(180f, 0, 0);
+                lower.AddComponent<MeshFilter>().sharedMesh =
+                    NatureFactory.SmoothTube(0.115f, 0.1f, 0.28f, 6, 1, 0.01f, GetInstanceID() + 5 + i, 1f);
+                lower.AddComponent<MeshRenderer>().sharedMaterial = fur;
+
+                var paw = new GameObject("Paw" + i);
+                paw.transform.SetParent(root, false);
+                paw.transform.localPosition = new Vector3(side * 0.28f, 0.06f, zPos + 0.05f);
+                paw.AddComponent<MeshFilter>().sharedMesh =
+                    NatureFactory.SmoothBlob(0.13f, 1, 0.04f, GetInstanceID() + 90 + i, new Vector3(0.9f, 0.5f, 1.25f));
+                paw.AddComponent<MeshRenderer>().sharedMaterial = fur;
+
+                for (int c = 0; c < 3; c++)
+                {
+                    var claw = new GameObject("Claw");
+                    claw.transform.SetParent(paw.transform, false);
+                    claw.transform.localPosition = new Vector3((c - 1) * 0.055f, -0.01f, 0.14f);
+                    claw.transform.localRotation = Quaternion.Euler(75f, 0, 0);
+                    claw.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(0.016f, 0.06f, 4);
+                    claw.AddComponent<MeshRenderer>().sharedMaterial = clawMat;
+                }
             }
         }
 
