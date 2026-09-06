@@ -117,6 +117,14 @@ namespace Forage
                     ForageEvents.RaiseHint("about-to-drink-dirty");
                 }
                 _drinkTimer += Time.deltaTime;
+
+                // drinking animation: water level sinks and drops trickle toward you
+                float sip = Mathf.Clamp01(_drinkTimer / drinkHoldSeconds);
+                if (_waterSurface != null)
+                {
+                    _waterSurface.transform.localPosition = new Vector3(0, Mathf.Lerp(0.09f, 0.02f, sip), 0);
+                    _waterSurface.transform.localScale = Vector3.one * Mathf.Lerp(1f, 0.55f, sip);
+                }
                 if (_drinkTimer >= drinkHoldSeconds)
                 {
                     gm.vitals.Drink(45f, contaminated);
@@ -133,6 +141,11 @@ namespace Forage
             }
             else
             {
+                if (_drinkTimer > 0f && _waterSurface != null)
+                {
+                    _waterSurface.transform.localPosition = new Vector3(0, 0.09f, 0);
+                    _waterSurface.transform.localScale = Vector3.one;
+                }
                 _drinkTimer = 0f;
             }
         }
@@ -141,6 +154,11 @@ namespace Forage
         {
             state = newState;
             _drinkTimer = 0f;
+            if (_waterSurface != null)
+            {
+                _waterSurface.transform.localPosition = new Vector3(0, 0.09f, 0);
+                _waterSurface.transform.localScale = Vector3.one;
+            }
             if (newState != PotState.Boiling && newState != PotState.CleanWater) boilProgress = 0f;
 
             if (_waterSurface != null)
