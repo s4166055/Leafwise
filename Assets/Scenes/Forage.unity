@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionBounces: 1
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
-  m_Sun: {fileID: 58040303}
+  m_Sun: {fileID: 819473464}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &58040302
+--- !u!1 &8829417
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,192 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 58040304}
-  - component: {fileID: 58040303}
+  - component: {fileID: 8829418}
+  - component: {fileID: 8829419}
+  m_Layer: 0
+  m_Name: WristHudAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8829418
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8829417}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.46174863, y: 0, z: 0, w: 0.8870109}
+  m_LocalPosition: {x: 0, y: 0.035, z: -0.14}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1961680516}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8829419
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8829417}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ffda8b01ef0d6a428bf2c7abd036981, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.WristHud
+  vitals: {fileID: 1947746280}
+--- !u!1 &326360264
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 326360266}
+  - component: {fileID: 326360265}
+  m_Layer: 0
+  m_Name: GlanceHud
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &326360265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 326360264}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8184d6a68148eac45be90618b8d159af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.GlanceHud
+  vitals: {fileID: 1947746280}
+  lowThreshold: 35
+  showAfterChange: 3.5
+  introSeconds: 15
+--- !u!4 &326360266
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 326360264}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &729776994
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 729776996}
+  - component: {fileID: 729776995}
+  m_Layer: 0
+  m_Name: Scout
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &729776995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729776994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ee41128d7dadd44dacc4b89495c44e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.ScoutCompanion
+--- !u!4 &729776996
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729776994}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &775150516
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 775150518}
+  - component: {fileID: 775150517}
+  m_Layer: 0
+  m_Name: AmbientWind
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &775150517
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 775150516}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67d700002f96768478b38537ede245e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.AmbientWindFx
+  leafParticleMat: {fileID: 2100000, guid: 9151f3e93f6b1fa4f88e76f9606c5b37, type: 2}
+  moteParticleMat: {fileID: 2100000, guid: f82644a98509afa47b4eef8affcf5321, type: 2}
+--- !u!4 &775150518
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 775150516}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &819473462
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 819473465}
+  - component: {fileID: 819473464}
+  - component: {fileID: 819473463}
   m_Layer: 0
   m_Name: Sun
   m_TagString: Untagged
@@ -136,13 +320,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &58040303
+--- !u!114 &819473463
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 819473462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ab9380444cbbad458627cb8d53172e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.DayNightCycle
+  sun: {fileID: 819473464}
+  dayLengthSeconds: 600
+  isNight: 0
+--- !u!108 &819473464
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 58040302}
+  m_GameObject: {fileID: 819473462}
   m_Enabled: 1
   serializedVersion: 12
   m_Type: 1
@@ -201,13 +400,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &58040304
+--- !u!4 &819473465
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 58040302}
+  m_GameObject: {fileID: 819473462}
   serializedVersion: 2
   m_LocalRotation: {x: 0.30783072, y: -0.30783072, z: 0.10599461, w: 0.89400536}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -216,7 +415,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &212324508
+--- !u!1 &1010371199
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -224,8 +423,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 212324510}
-  - component: {fileID: 212324509}
+  - component: {fileID: 1010371201}
+  - component: {fileID: 1010371200}
   m_Layer: 0
   m_Name: ScreenFeedback
   m_TagString: Untagged
@@ -233,25 +432,25 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &212324509
+--- !u!114 &1010371200
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 212324508}
+  m_GameObject: {fileID: 1010371199}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 835e43b69444c4843bedc84508c622c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Forage.ScreenFeedback
---- !u!4 &212324510
+--- !u!4 &1010371201
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 212324508}
+  m_GameObject: {fileID: 1010371199}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -260,7 +459,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &414313127
+--- !u!1 &1947746279
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -268,38 +467,184 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 414313129}
-  - component: {fileID: 414313128}
+  - component: {fileID: 1947746289}
+  - component: {fileID: 1947746288}
+  - component: {fileID: 1947746280}
+  - component: {fileID: 1947746287}
+  - component: {fileID: 1947746286}
+  - component: {fileID: 1947746285}
+  - component: {fileID: 1947746284}
+  - component: {fileID: 1947746283}
+  - component: {fileID: 1947746282}
+  - component: {fileID: 1947746281}
   m_Layer: 0
-  m_Name: GlanceHud
+  m_Name: Forage Systems
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &414313128
+--- !u!114 &1947746280
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 414313127}
+  m_GameObject: {fileID: 1947746279}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8184d6a68148eac45be90618b8d159af, type: 3}
+  m_Script: {fileID: 11500000, guid: c7a0c7cd161bf4648ab8b117b3eaf697, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.GlanceHud
-  vitals: {fileID: 1727806273}
-  lowThreshold: 35
-  showAfterChange: 3.5
-  introSeconds: 15
---- !u!4 &414313129
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.PlayerVitals
+  health: 100
+  hydration: 80
+  energy: 75
+  warmth: 70
+  hydrationDecay: 4.5
+  energyDecay: 3
+  warmthDecayCold: 5
+  warmthRecoverFire: 25
+  isSick: 0
+  nearFire: 0
+  isNight: 0
+--- !u!114 &1947746281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26d1279d8ffc0ba49aa10251cd9ccefb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.AnimalManager
+  rabbits: 3
+  squirrels: 2
+  deer: 2
+  snakeZones: 7
+  snakeZoneTriggerDist: 16
+  snakeDespawnDist: 38
+  squirrelModel: {fileID: 919132149155446097, guid: 48252dece8261a54f899443fd74725d9, type: 3}
+  squirrelController: {fileID: 9100000, guid: 29187ca53ddfbb1449782df490fb3aab, type: 2}
+  squirrelAlbedo: {fileID: 2800000, guid: 4c0d97ede7973b5499d353396fc3dbba, type: 3}
+  squirrelNormal: {fileID: 2800000, guid: 2f820939194988d459f928cadbc7dfa9, type: 3}
+  squirrelScale: 1.7
+--- !u!114 &1947746282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37d6ccc9cf961a4478103c37ece160a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.SimulatorUiFix
+--- !u!114 &1947746283
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32b16efe57cd7404ab286fcd1b5aab26, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.SprintController
+  walkSpeed: 4
+  runSpeed: 7.5
+  testForceSprint: 0
+--- !u!114 &1947746284
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c0a44aad929fa245a4b6aba3efe71d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.AmbienceAndFeedback
+--- !u!114 &1947746285
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 713435b5d2608094f8438a219239e71a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.CampsiteBuilder
+  drySticks: 8
+  wetSticks: 4
+  tinderBundles: 4
+--- !u!114 &1947746286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f1ccd3b321ac3146b591cc1c5640b8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.ForageAssets
+  stickWood: {fileID: 2100000, guid: aa65322e23a09524caf29d7e8eebbadb, type: 2}
+  tinderStraw: {fileID: 2100000, guid: a69c07d1c5b59384e8a5e89a792aaced, type: 2}
+  stone: {fileID: 2100000, guid: d5494f29f5c37704b9e3fd23c03c0d28, type: 2}
+  potMetal: {fileID: 2100000, guid: aad316c7660b66948892ec1cad01895d, type: 2}
+  charredWood: {fileID: 2100000, guid: 2beef11f37388b44b8257e5f0c1e28ad, type: 2}
+  flame: {fileID: 2100000, guid: 624ddbe7c2f7ccd43b4b32c3544fe612, type: 2}
+  smoke: {fileID: 2100000, guid: 059357a689259064e9566cf492b20c10, type: 2}
+  ember: {fileID: 2100000, guid: 43b073049148614469e3a126c6efc905, type: 2}
+  mushroomStem: {fileID: 2100000, guid: aea9e59826259024d927e1447a9bd989, type: 2}
+  capBrown: {fileID: 2100000, guid: 9e067fce9d98d41479f6f14ab2c2597a, type: 2}
+  capYellow: {fileID: 2100000, guid: 0a78af39074b7a943b8f2b8a4a0f2fd6, type: 2}
+  capRed: {fileID: 2100000, guid: cf1b47eadcd4be943a110e5a0a189db5, type: 2}
+  capPale: {fileID: 2100000, guid: d060b4c0f922de141a80b74cb5116292, type: 2}
+--- !u!114 &1947746287
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92199190f605f7944b443dcd7126cb1a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.SpawnGuard
+  rig: {fileID: 1961680515}
+  fallMargin: 6
+  headClearance: 1.5
+--- !u!114 &1947746288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1947746279}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ece9eb6e996c0145a88aa513c7a900e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Forage.GameManager
+  vitals: {fileID: 1947746280}
+  playerHead: {fileID: 1961680517}
+--- !u!4 &1947746289
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 414313127}
+  m_GameObject: {fileID: 1947746279}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -308,53 +653,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &599690814
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 599690816}
-  - component: {fileID: 599690815}
-  m_Layer: 0
-  m_Name: AmbientWind
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &599690815
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 599690814}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 67d700002f96768478b38537ede245e9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.AmbientWindFx
-  leafParticleMat: {fileID: 2100000, guid: 9151f3e93f6b1fa4f88e76f9606c5b37, type: 2}
-  moteParticleMat: {fileID: 2100000, guid: f82644a98509afa47b4eef8affcf5321, type: 2}
---- !u!4 &599690816
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 599690814}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &1148375607
+--- !u!1001 &1961680514
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -362,6 +661,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3639148551234328385, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
+      propertyPath: m_Height
+      value: 1.75
+      objectReference: {fileID: 0}
+    - target: {fileID: 3639148551234328385, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
+      propertyPath: m_Center.y
+      value: 0.875
+      objectReference: {fileID: 0}
+    - target: {fileID: 7277802327471902856, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.7
+      objectReference: {fileID: 0}
     - target: {fileID: 8298045291338814965, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -406,30 +717,38 @@ PrefabInstance:
       propertyPath: m_Name
       value: XR Origin Rig
       objectReference: {fileID: 0}
+    - target: {fileID: 8404871649812681847, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
+      propertyPath: m_CameraYOffset
+      value: 1.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8404871649812681847, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
+      propertyPath: m_RequestedTrackingOriginMode
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 7277802326798953675, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1424831540}
+      addedObject: {fileID: 8829418}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
---- !u!4 &1148375608 stripped
+--- !u!4 &1961680515 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8298045291338814965, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
-  m_PrefabInstance: {fileID: 1148375607}
+  m_PrefabInstance: {fileID: 1961680514}
   m_PrefabAsset: {fileID: 0}
---- !u!4 &1148375609 stripped
+--- !u!4 &1961680516 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7277802326798953675, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
-  m_PrefabInstance: {fileID: 1148375607}
+  m_PrefabInstance: {fileID: 1961680514}
   m_PrefabAsset: {fileID: 0}
---- !u!4 &1148375610 stripped
+--- !u!4 &1961680517 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7277802327414017193, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
-  m_PrefabInstance: {fileID: 1148375607}
+  m_PrefabInstance: {fileID: 1961680514}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1424831539
+--- !u!1 &2038442371
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -437,233 +756,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1424831540}
-  - component: {fileID: 1424831541}
-  m_Layer: 0
-  m_Name: WristHudAnchor
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1424831540
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1424831539}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.46174863, y: 0, z: 0, w: 0.8870109}
-  m_LocalPosition: {x: 0, y: 0.035, z: -0.14}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1148375609}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1424831541
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1424831539}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6ffda8b01ef0d6a428bf2c7abd036981, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.WristHud
-  vitals: {fileID: 1727806273}
---- !u!1 &1727806272
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1727806281}
-  - component: {fileID: 1727806280}
-  - component: {fileID: 1727806273}
-  - component: {fileID: 1727806279}
-  - component: {fileID: 1727806278}
-  - component: {fileID: 1727806277}
-  - component: {fileID: 1727806276}
-  - component: {fileID: 1727806275}
-  - component: {fileID: 1727806274}
-  m_Layer: 0
-  m_Name: Forage Systems
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1727806273
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c7a0c7cd161bf4648ab8b117b3eaf697, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.PlayerVitals
-  health: 100
-  hydration: 80
-  energy: 75
-  warmth: 70
-  hydrationDecay: 4.5
-  energyDecay: 3
-  warmthDecayCold: 5
-  warmthRecoverFire: 25
-  isSick: 0
-  nearFire: 0
-  isNight: 0
---- !u!114 &1727806274
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 26d1279d8ffc0ba49aa10251cd9ccefb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.AnimalManager
-  rabbits: 3
-  squirrels: 2
-  snakeZones: 7
-  snakeZoneTriggerDist: 16
-  snakeDespawnDist: 38
-  squirrelModel: {fileID: 919132149155446097, guid: 48252dece8261a54f899443fd74725d9, type: 3}
-  squirrelController: {fileID: 9100000, guid: 29187ca53ddfbb1449782df490fb3aab, type: 2}
-  squirrelAlbedo: {fileID: 2800000, guid: 4c0d97ede7973b5499d353396fc3dbba, type: 3}
-  squirrelNormal: {fileID: 2800000, guid: 2f820939194988d459f928cadbc7dfa9, type: 3}
-  squirrelScale: 0.5
---- !u!114 &1727806275
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 32b16efe57cd7404ab286fcd1b5aab26, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.SprintController
-  walkSpeed: 3
-  runSpeed: 6
-  testForceSprint: 0
---- !u!114 &1727806276
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4c0a44aad929fa245a4b6aba3efe71d5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.AmbienceAndFeedback
---- !u!114 &1727806277
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 713435b5d2608094f8438a219239e71a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.CampsiteBuilder
-  drySticks: 8
-  wetSticks: 4
-  tinderBundles: 4
---- !u!114 &1727806278
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9f1ccd3b321ac3146b591cc1c5640b8c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.ForageAssets
-  stickWood: {fileID: 2100000, guid: aa65322e23a09524caf29d7e8eebbadb, type: 2}
-  tinderStraw: {fileID: 2100000, guid: a69c07d1c5b59384e8a5e89a792aaced, type: 2}
-  stone: {fileID: 2100000, guid: d5494f29f5c37704b9e3fd23c03c0d28, type: 2}
-  potMetal: {fileID: 2100000, guid: aad316c7660b66948892ec1cad01895d, type: 2}
-  charredWood: {fileID: 2100000, guid: 2beef11f37388b44b8257e5f0c1e28ad, type: 2}
-  flame: {fileID: 2100000, guid: 624ddbe7c2f7ccd43b4b32c3544fe612, type: 2}
-  smoke: {fileID: 2100000, guid: 059357a689259064e9566cf492b20c10, type: 2}
-  ember: {fileID: 2100000, guid: 43b073049148614469e3a126c6efc905, type: 2}
-  mushroomStem: {fileID: 2100000, guid: aea9e59826259024d927e1447a9bd989, type: 2}
-  capBrown: {fileID: 2100000, guid: 9e067fce9d98d41479f6f14ab2c2597a, type: 2}
-  capYellow: {fileID: 2100000, guid: 0a78af39074b7a943b8f2b8a4a0f2fd6, type: 2}
-  capRed: {fileID: 2100000, guid: cf1b47eadcd4be943a110e5a0a189db5, type: 2}
-  capPale: {fileID: 2100000, guid: d060b4c0f922de141a80b74cb5116292, type: 2}
---- !u!114 &1727806279
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 92199190f605f7944b443dcd7126cb1a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.SpawnGuard
-  rig: {fileID: 1148375608}
-  fallMargin: 6
-  headClearance: 0.25
---- !u!114 &1727806280
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2ece9eb6e996c0145a88aa513c7a900e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Forage.GameManager
-  vitals: {fileID: 1727806273}
-  playerHead: {fileID: 1148375610}
---- !u!4 &1727806281
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727806272}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1896813332
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1896813334}
-  - component: {fileID: 1896813333}
+  - component: {fileID: 2038442373}
+  - component: {fileID: 2038442372}
   m_Layer: 0
   m_Name: Forest
   m_TagString: Untagged
@@ -671,13 +765,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1896813333
+--- !u!114 &2038442372
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1896813332}
+  m_GameObject: {fileID: 2038442371}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b18241db2eadc5c4186f499dc75eeb47, type: 3}
@@ -717,13 +811,13 @@ MonoBehaviour:
   waterMat: {fileID: 2100000, guid: 6b25aaf9dc015b24388e03c01442250f, type: 2}
   fishMat: {fileID: 2100000, guid: 0ca6d2691a006794a9c230351c3a765f, type: 2}
   crabMat: {fileID: 2100000, guid: 9f7543ba5d09a3c4e9a563a59b1e427c, type: 2}
---- !u!4 &1896813334
+--- !u!4 &2038442373
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1896813332}
+  m_GameObject: {fileID: 2038442371}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -736,10 +830,11 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 58040304}
-  - {fileID: 1148375607}
-  - {fileID: 1727806281}
-  - {fileID: 1896813334}
-  - {fileID: 599690816}
-  - {fileID: 212324510}
-  - {fileID: 414313129}
+  - {fileID: 819473465}
+  - {fileID: 1961680514}
+  - {fileID: 1947746289}
+  - {fileID: 2038442373}
+  - {fileID: 775150518}
+  - {fileID: 1010371201}
+  - {fileID: 326360266}
+  - {fileID: 729776996}
