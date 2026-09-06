@@ -69,7 +69,7 @@ namespace Forage
             venomous = species.venomous;
             var skin = AnimalFactory.SnakeSkin(species.baseColor, species.bandColor, GetInstanceID());
             _segments = AnimalFactory.SnakeBody(transform, GetInstanceID(), species.scale, skin);
-            var t = _segments[0].Find("Tongue");
+            var t = _segments[0].Find("HeadMesh/Tongue");
             _tongue = t;
         }
 

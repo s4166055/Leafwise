@@ -59,22 +59,34 @@ namespace Forage
 
         public static float SegmentSpacing(float scale) => 0.075f * scale;
 
-        /// <summary>Banded snake-skin texture generated at runtime.</summary>
+        /// <summary>Snake skin: overlapping scale pattern + species banding, generated at runtime.</summary>
         public static Material SnakeSkin(Color baseCol, Color bandCol, int seed)
         {
-            int size = 128;
+            int size = 256;
             var tex = new Texture2D(size, size, TextureFormat.RGB24, true);
-            var rand = new System.Random(seed);
+            tex.wrapMode = TextureWrapMode.Repeat;
             var px = new Color[size * size];
             for (int y = 0; y < size; y++)
                 for (int x = 0; x < size; x++)
                 {
                     float u = (float)x / size, v = (float)y / size;
-                    // diagonal bands + scale speckle
-                    float band = Mathf.PerlinNoise(u * 2f + seed, v * 14f) > 0.5f ? 1f : 0f;
-                    float speckle = Mathf.PerlinNoise(u * 30f + seed * 2, v * 30f) * 0.25f;
+
+                    // banding along the body (v axis wraps the length)
+                    float band = Mathf.PerlinNoise(u * 1.5f + seed, v * 10f) > 0.52f ? 1f : 0f;
                     var c = Color.Lerp(baseCol, bandCol, band * 0.8f);
-                    c *= 0.85f + speckle;
+
+                    // overlapping scales: offset diamond grid with a bright rim on each scale
+                    float row = v * 26f;
+                    float col = u * 13f + (Mathf.Floor(row) % 2f) * 0.5f;
+                    float fx = Mathf.Abs(col - Mathf.Floor(col) - 0.5f) * 2f;
+                    float fy = Mathf.Abs(row - Mathf.Floor(row) - 0.5f) * 2f;
+                    float diamond = fx + fy; // 0 center .. 2 corner
+                    float rim = Mathf.SmoothStep(0.75f, 1.0f, diamond);   // bright edge
+                    float shade = Mathf.SmoothStep(1.0f, 1.6f, diamond);  // dark groove
+                    c *= 0.9f + rim * 0.25f - shade * 0.35f;
+
+                    // subtle organic mottle
+                    c *= 0.92f + Mathf.PerlinNoise(u * 24f + seed * 2, v * 24f) * 0.16f;
                     px[y * size + x] = c;
                 }
             tex.SetPixels(px);
@@ -82,14 +94,15 @@ namespace Forage
 
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             mat.SetTexture("_BaseMap", tex);
-            mat.SetFloat("_Smoothness", 0.45f); // scaly sheen
+            mat.SetFloat("_Smoothness", 0.5f); // scaly sheen
             return mat;
         }
 
         /// <summary>
-        /// Snake body: tapered segment chain with banded skin, a broad flat head
-        /// with eyes and a flicking tongue. Returns segments; tongue is child
-        /// "Tongue" of segment 0.
+        /// Snake body: an invisible spine of transforms driven by the Snake
+        /// script, rendered as ONE continuous scaled tube (SnakeTube). The
+        /// head is a flattened wedge with eyes and a flicking tongue, blended
+        /// into the tube at the neck.
         /// </summary>
         public static Transform[] SnakeBody(Transform parent, int seed, float scale, Material skin, int segments = 16)
         {
@@ -97,33 +110,38 @@ namespace Forage
             var list = new Transform[segments];
             for (int i = 0; i < segments; i++)
             {
-                float t = (float)i / (segments - 1);
-                // neck dips then body swells then tapers to a fine tail
-                float profile = i == 0 ? 0.95f : Mathf.Sin(Mathf.PI * Mathf.Pow(1f - t, 0.72f));
-                float r = (0.018f + 0.042f * profile) * scale;
-                var squash = i == 0 ? new Vector3(1.3f, 0.7f, 1.45f) : new Vector3(1.1f, 0.85f, 1.35f);
-                // tight spacing so segments overlap into one continuous body
-                var seg = Blob(parent, "Seg" + i, r, squash, skin,
-                    new Vector3(0, r * 0.85f, -i * SegmentSpacing(scale)), seed + i);
+                // spine points only — no per-segment renderers
+                var seg = new GameObject("Spine" + i);
+                seg.transform.SetParent(parent, false);
+                seg.transform.localPosition = new Vector3(0, 0.05f * scale, -i * SegmentSpacing(scale));
                 list[i] = seg.transform;
-
-                if (i == 0)
-                {
-                    float er = 0.012f * scale;
-                    Blob(seg.transform, "EyeL", er, Vector3.one, _eye, new Vector3(-0.035f * scale, 0.02f * scale, 0.04f * scale), seed + 90);
-                    Blob(seg.transform, "EyeR", er, Vector3.one, _eye, new Vector3(0.035f * scale, 0.02f * scale, 0.04f * scale), seed + 91);
-
-                    // forked tongue: thin red cone, animated by the Snake script
-                    var tongueMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                    tongueMat.SetColor("_BaseColor", new Color(0.75f, 0.1f, 0.12f));
-                    var tongue = new GameObject("Tongue");
-                    tongue.transform.SetParent(seg.transform, false);
-                    tongue.transform.localPosition = new Vector3(0, 0, 0.085f * scale);
-                    tongue.transform.localRotation = Quaternion.Euler(90f, 0, 0);
-                    tongue.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(0.006f * scale, 0.09f * scale, 4);
-                    tongue.AddComponent<MeshRenderer>().sharedMaterial = tongueMat;
-                }
             }
+
+            // head: flattened wedge that caps the tube
+            var head = new GameObject("HeadMesh");
+            head.transform.SetParent(list[0], false);
+            head.transform.localPosition = new Vector3(0, 0, 0.03f * scale);
+            head.AddComponent<MeshFilter>().sharedMesh =
+                NatureFactory.SmoothBlob(0.062f * scale, 1, 0.05f, seed, new Vector3(1.15f, 0.62f, 1.6f));
+            head.AddComponent<MeshRenderer>().sharedMaterial = skin;
+
+            float er = 0.012f * scale;
+            Blob(head.transform, "EyeL", er, Vector3.one, _eye, new Vector3(-0.036f * scale, 0.022f * scale, 0.045f * scale), seed + 90);
+            Blob(head.transform, "EyeR", er, Vector3.one, _eye, new Vector3(0.036f * scale, 0.022f * scale, 0.045f * scale), seed + 91);
+
+            var tongueMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            tongueMat.SetColor("_BaseColor", new Color(0.75f, 0.1f, 0.12f));
+            var tongue = new GameObject("Tongue");
+            tongue.transform.SetParent(head.transform, false);
+            tongue.transform.localPosition = new Vector3(0, 0, 0.1f * scale);
+            tongue.transform.localRotation = Quaternion.Euler(90f, 0, 0);
+            tongue.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(0.006f * scale, 0.09f * scale, 4);
+            tongue.AddComponent<MeshRenderer>().sharedMaterial = tongueMat;
+
+            // the continuous body tube
+            var tubeGo = new GameObject("BodyTube");
+            tubeGo.transform.SetParent(parent, false);
+            tubeGo.AddComponent<SnakeTube>().Init(list, scale, skin);
             return list;
         }
     }
