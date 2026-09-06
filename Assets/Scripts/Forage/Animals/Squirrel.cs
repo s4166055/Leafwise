@@ -8,7 +8,7 @@ namespace Forage
     /// </summary>
     public class Squirrel : Animal
     {
-        public enum State { Wander, ToTree, ClimbUp, TreeIdle, ClimbDown }
+        public enum State { Wander, Flee, ToTree, ClimbUp, TreeIdle, ClimbDown }
 
         [Header("State (read-only)")]
         public State state = State.Wander;
@@ -65,6 +65,7 @@ namespace Forage
             agent.acceleration = 16f;
             agent.radius = 0.15f;
             agent.height = 0.3f;
+            noticeDistance = 6f;   // startles when you get close
             _nextTreeTime = Time.time + Random.Range(8f, 20f);
             agent.SetDestination(RandomPoint(transform.position, 10f));
         }
@@ -78,11 +79,40 @@ namespace Forage
                 case State.Wander:
                     if (agent.enabled && agent.remainingDistance < 0.6f)
                         agent.SetDestination(RandomPoint(transform.position, 10f));
+                    // startled: bolt for the nearest trunk, exactly as a real squirrel does
+                    if (PlayerDistance < noticeDistance)
+                    {
+                        BeginFlee();
+                        break;
+                    }
                     if (Time.time > _nextTreeTime && AnimalManager.Instance != null &&
                         AnimalManager.Instance.TryGetNearbyTree(transform.position, 14f, out _treeBase, out _climbHeight))
                     {
                         agent.SetDestination(_treeBase);
                         Set(State.ToTree);
+                    }
+                    break;
+
+                case State.Flee:
+                    // dash to a trunk and scurry up it; if none is near, just bolt away
+                    if (agent.enabled && !agent.pathPending && agent.remainingDistance < 0.5f)
+                    {
+                        if (_fleeingToTree)
+                        {
+                            agent.enabled = false;
+                            _climbT = 0f;
+                            Set(State.ClimbUp);
+                            break;
+                        }
+                        Vector3 away = (transform.position - GameManager.Instance.PlayerPosition).normalized;
+                        away.y = 0;
+                        agent.SetDestination(RandomPoint(transform.position + away * 12f, 4f));
+                    }
+                    if (_stateTimer > 8f)
+                    {
+                        agent.speed = 2.2f;
+                        _nextTreeTime = Time.time + Random.Range(10f, 20f);
+                        Set(State.Wander);
                     }
                     break;
 
@@ -127,6 +157,71 @@ namespace Forage
                     : (agent.enabled ? agent.velocity.magnitude : 0f);
                 _animator.SetFloat(_speedParam, moveSpeed);
             }
+
+            AnimateScamper();
+        }
+
+        /// <summary>
+        /// Squirrels don't walk — they bound. Procedural scamper on top of
+        /// whatever the imported clip does: arched hops, a nose-down landing
+        /// pitch and a counter-swishing tail, so it never reads as a statue
+        /// sliding across the ground.
+        /// </summary>
+        void AnimateScamper()
+        {
+            if (body == null) return;
+
+            bool climbing = state == State.ClimbUp || state == State.ClimbDown;
+            float speed = agent.enabled ? agent.velocity.magnitude : 0f;
+            float speed01 = Mathf.Clamp01(speed / Mathf.Max(agent.speed, 0.1f));
+
+            if (climbing)
+            {
+                // scrabbling up bark: fast, shallow, slightly side-to-side
+                _scamperPhase += Time.deltaTime * 16f;
+                float scrabble = Mathf.Sin(_scamperPhase) * 0.012f;
+                body.localPosition = new Vector3(scrabble, Mathf.Abs(Mathf.Cos(_scamperPhase)) * 0.015f, 0f);
+                body.localRotation = Quaternion.Euler(0f, 0f, scrabble * 240f);
+                return;
+            }
+
+            // bounding gait: the faster it goes, the bigger and quicker the arcs
+            _scamperPhase += Time.deltaTime * Mathf.Lerp(6f, 17f, speed01);
+            float hop = Mathf.Abs(Mathf.Sin(_scamperPhase));
+            float bound = hop * Mathf.Lerp(0.02f, 0.13f, speed01);
+
+            // pitch nose-down at the top of the arc, level on landing
+            float pitch = Mathf.Cos(_scamperPhase * 2f) * Mathf.Lerp(3f, 22f, speed01);
+            // tail counter-swishes against the body
+            float tailSwish = Mathf.Sin(_scamperPhase + Mathf.PI * 0.5f) * Mathf.Lerp(2f, 13f, speed01);
+
+            body.localPosition = new Vector3(0f, bound, 0f);
+            body.localRotation = Quaternion.Euler(-pitch, tailSwish, 0f);
+        }
+
+        float _scamperPhase;
+
+        bool _fleeingToTree;
+
+        /// <summary>Startle response: sprint for the nearest trunk, then climb.</summary>
+        void BeginFlee()
+        {
+            if (!agent.enabled || !agent.isOnNavMesh) return;
+            agent.speed = 5.5f;                       // squirrels are quick
+            _fleeingToTree = AnimalManager.Instance != null &&
+                AnimalManager.Instance.TryGetNearbyTree(transform.position, 12f, out _treeBase, out _climbHeight);
+            if (_fleeingToTree)
+            {
+                agent.SetDestination(_treeBase);
+            }
+            else
+            {
+                Vector3 away = (transform.position - GameManager.Instance.PlayerPosition).normalized;
+                away.y = 0;
+                agent.SetDestination(RandomPoint(transform.position + away * 12f, 4f));
+            }
+            ProceduralAudio.PlayAt(transform.position, ProceduralAudio.Chirp(0), 0.35f);
+            Set(State.Flee);
         }
 
         /// <summary>Procedural stand-in body if the FBX is missing.</summary>
