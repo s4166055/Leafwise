@@ -84,18 +84,28 @@ namespace Forage
                     ForageEvents.RaiseHint("about-to-eat-suspicious-mushroom");
                 }
                 _eatTimer += Time.deltaTime;
+                // bite animation: the mushroom visibly shrinks as you eat
+                transform.localScale = Vector3.one * (1f - Mathf.Clamp01(_eatTimer / eatHoldSeconds) * 0.45f);
                 if (_eatTimer >= eatHoldSeconds)
                     Eat(gm);
             }
             else
             {
+                if (_eatTimer > 0f) transform.localScale = Vector3.one;
                 _eatTimer = 0f;
             }
         }
 
         public void Eat(GameManager gm)
         {
-            gm.vitals.Eat(30f, poisonous);
+            var cookable = GetComponent<Cookable>();
+            bool cooked = cookable != null && cookable.cooked;
+            // cooking makes safe food more nourishing — but NEVER detoxifies deadly species
+            gm.vitals.Eat(cooked ? 45f : 30f, poisonous);
+            if (cooked && poisonous)
+                FactCard.Show("Cooking does NOT make it safe!",
+                    "Heat does not destroy the toxins in deadly mushrooms like the Death Cap. " +
+                    "If a mushroom is poisonous raw, it is poisonous cooked.", good: false);
             ProceduralAudio.PlayAt(transform.position, ProceduralAudio.Crunch(), 0.9f);
             Haptics.Pulse(0.25f, 0.1f);
             if (!poisonous) ScreenFeedback.Eat(); // poison path flashes red via vitals.Harmed
