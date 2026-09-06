@@ -12,8 +12,9 @@ namespace Forage
     /// </summary>
     public class SprintController : MonoBehaviour
     {
-        public float walkSpeed = 4.0f;
-        public float runSpeed = 7.5f;
+        // 3x the previous pace — the forest is crossable without it feeling like a trudge
+        public float walkSpeed = 12.0f;
+        public float runSpeed = 22.0f;
 
         [Header("Debug/testing")]
         public bool testForceSprint;
