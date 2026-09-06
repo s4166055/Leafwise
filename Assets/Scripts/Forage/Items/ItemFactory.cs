@@ -57,6 +57,88 @@ namespace Forage
             return go;
         }
 
+        public static GameObject Branch(int seed)
+        {
+            var rand = new System.Random(seed);
+            var go = new GameObject("Branch");
+            float len = 1.6f + (float)rand.NextDouble() * 0.5f;
+            float r = 0.032f;
+            var vis = new GameObject("BranchMesh");
+            vis.transform.SetParent(go.transform, false);
+            vis.transform.localRotation = Quaternion.Euler(0, 0, 90);
+            vis.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothTube(r, r * 0.7f, len, 5, 2, 0.06f, seed, 2f);
+            vis.AddComponent<MeshRenderer>().sharedMaterial = ForageAssets.Instance.stickWood;
+
+            var col = go.AddComponent<CapsuleCollider>();
+            col.direction = 0;
+            col.radius = r * 1.5f;
+            col.height = len;
+            col.center = new Vector3(-len * 0.5f, 0, 0);
+            MakeGrabbable(go, ItemKind.Branch, 0.9f);
+            return go;
+        }
+
+        public static GameObject LeafBundle(int seed)
+        {
+            var go = new GameObject("LeafBundle");
+            var rand = new System.Random(seed);
+            var mat = ForageAssets.Instance.tinderStraw;
+            var leafGreen = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            leafGreen.SetColor("_BaseColor", new Color(0.3f, 0.5f, 0.22f));
+            for (int i = 0; i < 3; i++)
+            {
+                var blob = new GameObject("Leaves" + i);
+                blob.transform.SetParent(go.transform, false);
+                blob.transform.localPosition = new Vector3(((float)rand.NextDouble() - 0.5f) * 0.12f, 0.05f + i * 0.03f,
+                    ((float)rand.NextDouble() - 0.5f) * 0.12f);
+                blob.AddComponent<MeshFilter>().sharedMesh =
+                    NatureFactory.SmoothBlob(0.11f, 1, 0.25f, seed + i, new Vector3(1.3f, 0.5f, 1.1f));
+                blob.AddComponent<MeshRenderer>().sharedMaterial = leafGreen;
+            }
+            var col = go.AddComponent<SphereCollider>();
+            col.radius = 0.15f;
+            col.center = Vector3.up * 0.08f;
+            MakeGrabbable(go, ItemKind.LeafBundle, 0.25f);
+            return go;
+        }
+
+        /// <summary>Berry cluster: red = safe, white = toxic (a real-world rule of thumb).</summary>
+        public static GameObject BerryCluster(int seed, bool safe)
+        {
+            var go = new GameObject(safe ? "RedBerries" : "WhiteBerries");
+            var rand = new System.Random(seed);
+            var assets = ForageAssets.Instance;
+            var berryMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            berryMat.SetColor("_BaseColor", safe ? new Color(0.75f, 0.12f, 0.18f) : new Color(0.92f, 0.92f, 0.85f));
+            berryMat.SetFloat("_Smoothness", 0.6f);
+
+            LowPolyFactory.AddMeshChild(go, LowPolyFactory.Cone(0.008f, 0.09f, 4), assets.mushroomStem, Vector3.zero);
+            for (int i = 0; i < 6; i++)
+            {
+                var berry = new GameObject("Berry");
+                berry.transform.SetParent(go.transform, false);
+                berry.transform.localPosition = new Vector3(
+                    ((float)rand.NextDouble() - 0.5f) * 0.07f,
+                    0.08f + ((float)rand.NextDouble() - 0.3f) * 0.05f,
+                    ((float)rand.NextDouble() - 0.5f) * 0.07f);
+                berry.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.016f, 1, 0.03f, seed + i, Vector3.one);
+                berry.AddComponent<MeshRenderer>().sharedMaterial = berryMat;
+            }
+
+            var col = go.AddComponent<SphereCollider>();
+            col.radius = 0.08f;
+            col.center = Vector3.up * 0.08f;
+            MakeGrabbable(go, ItemKind.Mushroom, 0.05f); // behaves like forage food (fox will steal it too)
+
+            var shroom = go.AddComponent<Mushroom>();
+            shroom.speciesName = safe ? "Wild Raspberries" : "White Baneberry";
+            shroom.poisonous = !safe;
+            shroom.fact = safe
+                ? "Red aggregate berries like raspberries are among the safest wild foods. Sweet smell, familiar shape — a forager's friend."
+                : "WHITE berries are almost always toxic — baneberry can stop a heart. Rule of thumb: white and yellow berries, leave them be.";
+            return go;
+        }
+
         public static GameObject FlintStone(int seed)
         {
             var go = new GameObject("FlintStone");

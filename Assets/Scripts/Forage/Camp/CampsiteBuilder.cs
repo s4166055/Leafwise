@@ -29,6 +29,56 @@ namespace Forage
             BuildFirePit(forest);
             ScatterGatherables(forest);
             ScatterMushrooms(forest);
+            BuildShelterSite(forest);
+            ScatterShelterMaterials(forest);
+            ScatterBerries(forest);
+        }
+
+        void BuildShelterSite(ForestGenerator forest)
+        {
+            var site = new GameObject("ShelterSite");
+            site.transform.position = new Vector3(-3.2f, forest.HeightAt(-3.2f, 2.8f), 2.8f);
+            site.transform.rotation = Quaternion.Euler(0, 155f, 0);
+            var shelter = site.AddComponent<Shelter>();
+            shelter.Build(forest.barkMat, forest.broadleafCards != null && forest.broadleafCards.Length > 0
+                ? forest.broadleafCards[0] : ForageAssets.Instance.tinderStraw);
+        }
+
+        void ScatterShelterMaterials(ForestGenerator forest)
+        {
+            var rand = new System.Random(forest.seed + 8181);
+            for (int i = 0; i < 6; i++)
+            {
+                var branch = ItemFactory.Branch(forest.seed + 400 + i);
+                float a = (float)rand.NextDouble() * Mathf.PI * 2f;
+                float r = 6f + (float)rand.NextDouble() * 14f;
+                float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+                branch.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.15f, z);
+                branch.transform.rotation = Quaternion.Euler(0, (float)rand.NextDouble() * 360f, 0);
+            }
+            for (int i = 0; i < 5; i++)
+            {
+                var bundle = ItemFactory.LeafBundle(forest.seed + 500 + i);
+                float a = (float)rand.NextDouble() * Mathf.PI * 2f;
+                float r = 5f + (float)rand.NextDouble() * 12f;
+                float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+                bundle.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.12f, z);
+            }
+        }
+
+        void ScatterBerries(ForestGenerator forest)
+        {
+            var rand = new System.Random(forest.seed + 9292);
+            for (int i = 0; i < 12; i++)
+            {
+                bool safe = i % 3 != 2; // two thirds safe red, one third toxic white
+                var cluster = ItemFactory.BerryCluster(forest.seed + 600 + i, safe);
+                float a = (float)rand.NextDouble() * Mathf.PI * 2f;
+                float r = 8f + (float)rand.NextDouble() * 45f;
+                float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+                if (Vector2.Distance(new Vector2(x, z), forest.pondCenter) < forest.pondRadius + 1f) continue;
+                cluster.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.06f, z);
+            }
         }
 
         void ScatterMushrooms(ForestGenerator forest)

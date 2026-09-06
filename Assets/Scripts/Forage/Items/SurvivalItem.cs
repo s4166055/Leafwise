@@ -9,9 +9,10 @@ namespace Forage
         DrillStick,
         Pot,
         Mushroom,
-        Branch,      // shelter building (C7)
-        LeafBundle,  // shelter building (C7)
-        Flint        // strike two together for sparks
+        Branch,      // shelter building
+        LeafBundle,  // shelter building
+        Flint,       // strike two together for sparks
+        Fish         // caught from the pond; cook it!
     }
 
     /// <summary>Marks a grabbable survival item and its properties.</summary>
