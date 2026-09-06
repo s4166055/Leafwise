@@ -21,6 +21,8 @@ namespace Forage
         float _bubbleTimer;
         float _askCooldown;
         float _bobPhase;
+        MeshRenderer _bodyRenderer;
+        Light _glowLight;
         readonly Dictionary<string, int> _hintCounts = new Dictionary<string, int>();
 
         static readonly Dictionary<string, string[]> Hints = new Dictionary<string, string[]>
@@ -71,15 +73,22 @@ namespace Forage
 
             var body = new GameObject("ScoutBody");
             body.transform.SetParent(transform, false);
-            body.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.05f, 2, 0.02f, 4242, Vector3.one);
-            body.AddComponent<MeshRenderer>().sharedMaterial = glow;
+            // small firefly, not a floating beach ball
+            body.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.022f, 2, 0.02f, 4242, Vector3.one);
+            _bodyRenderer = body.AddComponent<MeshRenderer>();
+            _bodyRenderer.sharedMaterial = glow;
+            _bodyRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            var light = body.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.color = new Color(0.6f, 1f, 0.5f);
-            light.intensity = 0.7f;
-            light.range = 1.6f;
-            light.shadows = LightShadows.None;
+            _glowLight = body.AddComponent<Light>();
+            _glowLight.type = LightType.Point;
+            _glowLight.color = new Color(0.6f, 1f, 0.5f);
+            _glowLight.intensity = 0.35f;
+            _glowLight.range = 1.1f;
+            _glowLight.shadows = LightShadows.None;
+
+            // Scout stays out of sight until it actually speaks
+            _bodyRenderer.enabled = false;
+            _glowLight.enabled = false;
 
             // speech bubble
             var canvasGo = new GameObject("Bubble", typeof(Canvas), typeof(CanvasGroup));
@@ -168,8 +177,9 @@ namespace Forage
             _bobPhase += Time.deltaTime * 2.2f;
             Vector3 fwd = _head.forward; fwd.y = 0; fwd.Normalize();
             Vector3 right = Vector3.Cross(Vector3.up, fwd);
-            Vector3 target = _head.position + fwd * 0.55f + right * 0.42f +
-                             Vector3.up * (-0.05f + Mathf.Sin(_bobPhase) * 0.03f);
+            // further out and lower, so it never sits in the middle of the view
+            Vector3 target = _head.position + fwd * 0.85f + right * 0.62f +
+                             Vector3.up * (-0.32f + Mathf.Sin(_bobPhase) * 0.03f);
             transform.position = Vector3.Lerp(transform.position, target, Time.deltaTime * 3.2f);
 
             if (_bubble != null)
@@ -178,6 +188,15 @@ namespace Forage
                 if (to.sqrMagnitude > 0.001f) _bubble.rotation = Quaternion.LookRotation(to);
                 _bubbleTimer -= Time.deltaTime;
                 _bubbleGroup.alpha = Mathf.MoveTowards(_bubbleGroup.alpha, _bubbleTimer > 0 ? 1f : 0f, Time.deltaTime * 4f);
+
+                // the orb only exists while Scout is talking
+                bool visible = _bubbleGroup.alpha > 0.02f;
+                if (_bodyRenderer != null) _bodyRenderer.enabled = visible;
+                if (_glowLight != null)
+                {
+                    _glowLight.enabled = visible;
+                    _glowLight.intensity = 0.35f * _bubbleGroup.alpha;
+                }
             }
 
             _askCooldown -= Time.deltaTime;
