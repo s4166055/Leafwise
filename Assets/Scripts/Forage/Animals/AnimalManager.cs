@@ -14,6 +14,7 @@ namespace Forage
         [Header("Population")]
         public int rabbits = 3;
         public int squirrels = 2;
+        public int deer = 2;
         public int snakeZones = 7;      // ambush zones; snakes materialize when you wander near
         public float snakeZoneTriggerDist = 16f;
         public float snakeDespawnDist = 38f;
@@ -23,7 +24,7 @@ namespace Forage
         public RuntimeAnimatorController squirrelController;
         public Texture2D squirrelAlbedo;
         public Texture2D squirrelNormal;
-        public float squirrelScale = 0.5f;
+        public float squirrelScale = 1.7f; // user request: 3-4x the original 0.5
 
         static AnimalManager _instance;
         public static AnimalManager Instance
@@ -105,6 +106,9 @@ namespace Forage
             }
             for (int i = 0; i < rabbits; i++) SpawnRabbit(RandomSpawn(10f, 35f));
             for (int i = 0; i < squirrels; i++) SpawnSquirrel(RandomSpawn(8f, 30f));
+            for (int i = 0; i < deer; i++) SpawnDeer(RandomSpawn(18f, 45f));
+            SpawnFox(RandomSpawn(20f, 40f));
+            SpawnBear(RandomSpawn(45f, 70f));
 
             // snake ambush zones spread across the map, species assigned per zone
             var forest = ForestGenerator.Instance;
@@ -190,6 +194,27 @@ namespace Forage
             return snake;
         }
 
+        public Deer SpawnDeer(Vector3 pos)
+        {
+            var go = new GameObject("Deer");
+            go.transform.position = pos;
+            return go.AddComponent<Deer>();
+        }
+
+        public Fox SpawnFox(Vector3 pos)
+        {
+            var go = new GameObject("Fox");
+            go.transform.position = pos;
+            return go.AddComponent<Fox>();
+        }
+
+        public Bear SpawnBear(Vector3 pos)
+        {
+            var go = new GameObject("Bear");
+            go.transform.position = pos;
+            return go.AddComponent<Bear>();
+        }
+
         public Squirrel SpawnSquirrel(Vector3 pos)
         {
             var go = new GameObject("Squirrel");
@@ -226,17 +251,22 @@ namespace Forage
                 near.y = ForestGenerator.Instance != null ? ForestGenerator.Instance.HeightAt(near.x, near.z) : 0f;
 
                 GUILayout.Label("— Spawn near player —");
-                if (GUILayout.Button("Spawn Rabbit")) SpawnRabbit(near);
-                if (GUILayout.Button("Spawn Snake")) SpawnSnake(near);
-                if (GUILayout.Button("Spawn Squirrel")) SpawnSquirrel(near);
+                if (GUILayout.Button("Rabbit")) SpawnRabbit(near);
+                if (GUILayout.Button("Snake")) SpawnSnake(near);
+                if (GUILayout.Button("Squirrel")) SpawnSquirrel(near);
+                if (GUILayout.Button("Deer")) SpawnDeer(near);
+                if (GUILayout.Button("Fox")) SpawnFox(near);
+                if (GUILayout.Button("Bear")) SpawnBear(near);
 
                 GUILayout.Label("— Force states (nearest) —");
                 if (GUILayout.Button("Rabbit: Approach")) Nearest<Rabbit>()?.ForceState(Rabbit.State.Approach);
-                if (GUILayout.Button("Rabbit: Flee")) Nearest<Rabbit>()?.ForceState(Rabbit.State.Flee);
                 if (GUILayout.Button("Snake: Alert")) Nearest<Snake>()?.ForceState(Snake.State.Alert);
                 if (GUILayout.Button("Snake: Strike")) Nearest<Snake>()?.ForceState(Snake.State.Strike);
-                if (GUILayout.Button("Snake: Leave")) Nearest<Snake>()?.ForceState(Snake.State.Leave);
-                if (GUILayout.Button("Squirrel: Climb tree")) Nearest<Squirrel>()?.ForceClimb();
+                if (GUILayout.Button("Squirrel: Climb")) Nearest<Squirrel>()?.ForceClimb();
+                if (GUILayout.Button("Deer: Bolt")) Nearest<Deer>()?.Bolt();
+                if (GUILayout.Button("Fox: Steal now")) Nearest<Fox>()?.ForceState(Fox.State.Prowl);
+                if (GUILayout.Button("Bear: Stand")) Nearest<Bear>()?.ForceState(Bear.State.Stand);
+                if (GUILayout.Button("Bear: Charge")) Nearest<Bear>()?.ForceState(Bear.State.Charge);
             }
             GUILayout.EndArea();
         }
