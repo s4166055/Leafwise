@@ -46,6 +46,10 @@ namespace Forage.EditorTools
             RenderSettings.fogDensity = 0.011f;
             RenderSettings.fogColor = new Color(0.6f, 0.7f, 0.64f);
 
+            // --- forest first: its height field decides where everything else sits ---
+            var forestGo = new GameObject("Forest");
+            var forest = forestGo.AddComponent<ForestGenerator>();
+
             // --- XR rig from the VR template ---
             var rigPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RigPrefabPath);
             if (rigPrefab == null)
@@ -55,7 +59,9 @@ namespace Forage.EditorTools
             }
             var rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab);
             rig.name = "XR Origin Rig";
-            rig.transform.position = new Vector3(0f, 1f, 0f);
+            // spawn on the camp plateau (the clearing is no longer flattened to y=0),
+            // 1 m up so the character controller settles onto the ground
+            rig.transform.position = new Vector3(0f, ForestGenerator.CampLevel(forest.seed) + 1f, 0f);
 
             // stand the player at adult eye height (~1.7 m ≈ 5'7") instead of
             // the device default, which sits low when there is no room-scale floor
@@ -78,10 +84,6 @@ namespace Forage.EditorTools
             var systems = new GameObject("Forage Systems");
             var manager = systems.AddComponent<GameManager>();
             var vitals = systems.AddComponent<PlayerVitals>();
-
-            // forest first (its field functions drive the terrain texture bake)
-            var forestGo = new GameObject("Forest");
-            var forest = forestGo.AddComponent<ForestGenerator>();
 
             var mats = EnsureMaterials(forest);
 

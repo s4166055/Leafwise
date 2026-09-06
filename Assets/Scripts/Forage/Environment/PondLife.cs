@@ -26,7 +26,11 @@ namespace Forage
         }
 
         readonly List<Swimmer> _critters = new List<Swimmer>();
-        const float SurfaceY = -0.5f;
+
+        /// <summary>Follows the generated pond rather than a hard-coded height.</summary>
+        float SurfaceY => ForestGenerator.Instance != null
+            ? ForestGenerator.Instance.WaterLevel - 0.05f
+            : -0.5f;
 
         void Start()
         {

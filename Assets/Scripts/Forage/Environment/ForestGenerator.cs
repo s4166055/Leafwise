@@ -14,7 +14,7 @@ namespace Forage
     {
         [Header("Seed & size")]
         public int seed = 20260902;
-        public float worldSize = 180f;
+        public float worldSize = 144f;   // 20% smaller than the original 180
         public int gridResolution = 110;
 
         [Header("Camp clearing")]
@@ -72,17 +72,33 @@ namespace Forage
 
         // ---- static field functions so the editor scene-builder can bake matching textures ----
 
+        /// <summary>Raw rolling-hill noise before camp/pond shaping.</summary>
+        static float RawHeight(int seed, float x, float z)
+        {
+            float ox = seed * 0.137f % 1000f;
+            return Mathf.PerlinNoise(x * 0.014f + ox, z * 0.014f + ox) * 3.2f
+                 + Mathf.PerlinNoise(x * 0.055f + ox, z * 0.055f + ox) * 0.8f
+                 + Mathf.PerlinNoise(x * 0.006f + ox * 2f, z * 0.006f + ox * 2f) * 2f;
+        }
+
+        /// <summary>
+        /// Ground level of the camp clearing. The clearing is flattened to the
+        /// terrain's own height at the origin, so it reads as a level glade —
+        /// flattening toward y=0 instead used to sink the whole camp into a
+        /// crater below the surrounding forest.
+        /// </summary>
+        public static float CampLevel(int seed) => RawHeight(seed, 0f, 0f);
+
         public static float HeightField(int seed, float x, float z, float campRadius, Vector2 pondCenter,
             float pondRadius, float pondDepth)
         {
-            float ox = seed * 0.137f % 1000f;
-            float h = Mathf.PerlinNoise(x * 0.014f + ox, z * 0.014f + ox) * 3.2f
-                    + Mathf.PerlinNoise(x * 0.055f + ox, z * 0.055f + ox) * 0.8f
-                    + Mathf.PerlinNoise(x * 0.006f + ox * 2f, z * 0.006f + ox * 2f) * 2f;
+            float h = RawHeight(seed, x, z);
 
+            // blend the clearing into a flat plateau at the natural local height
             float campT = Mathf.Clamp01(new Vector2(x, z).magnitude / campRadius);
-            h *= Mathf.SmoothStep(0f, 1f, campT);
+            h = Mathf.Lerp(CampLevel(seed), h, Mathf.SmoothStep(0f, 1f, campT));
 
+            // the pond stays a genuine depression, measured from the ground around it
             float pondT = Mathf.Clamp01(Vector2.Distance(new Vector2(x, z), pondCenter) / pondRadius);
             h -= (1f - Mathf.SmoothStep(0f, 1f, pondT)) * (pondDepth + 1.5f);
             return h;
@@ -162,11 +178,15 @@ namespace Forage
                 teleportArea.interactionLayers = teleportMask;
         }
 
+        /// <summary>Water surface height: just below the ground at the pond rim.</summary>
+        public float WaterLevel =>
+            HeightAt(pondCenter.x + pondRadius, pondCenter.y) - 0.45f;
+
         void BuildPondWater()
         {
             var mesh = LowPolyFactory.Cone(pondRadius * 0.92f, 0.02f, 24);
             var go = LowPolyFactory.AddMeshChild(_propsRoot.gameObject, mesh, waterMat,
-                new Vector3(pondCenter.x, -0.45f, pondCenter.y));
+                new Vector3(pondCenter.x, WaterLevel, pondCenter.y));
             go.name = "PondWater";
             var col = go.AddComponent<SphereCollider>();
             col.isTrigger = true;

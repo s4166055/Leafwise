@@ -17,7 +17,8 @@ namespace Forage
         public float drinkDistance = 0.30f;   // pot-to-head distance that counts as drinking
         public float drinkHoldSeconds = 0.9f;
         public float fireRadius = 1.3f;       // how close to the fire pit to boil
-        public float scoopMaxY = 0.0f;        // pot must reach below this height to scoop
+        [Tooltip("Set from the generated pond at runtime; the pot must dip below this to scoop.")]
+        public float scoopMaxY = 0.0f;
 
         [Header("State (read-only)")]
         public PotState state = PotState.Empty;
@@ -40,6 +41,10 @@ namespace Forage
 
         void Start()
         {
+            // scooping threshold follows the generated pond surface
+            if (ForestGenerator.Instance != null)
+                scoopMaxY = ForestGenerator.Instance.WaterLevel + 0.05f;
+
             // water surface disc inside the pot rim
             _waterMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             var surf = LowPolyFactory.AddMeshChild(gameObject,
