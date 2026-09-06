@@ -30,30 +30,66 @@ namespace Forage
             return go;
         }
 
-        /// <summary>Rabbit visual: body + head + ears + tail + feet. Returns the visual root.</summary>
+        /// <summary>
+        /// Rabbit: crouched hare silhouette — long haunches, tucked forelegs,
+        /// rounded rump, tapered muzzle, long ears with pink inner lining and a
+        /// white scut. Returns the visual root.
+        /// </summary>
         public static Transform RabbitBody(Transform parent, int seed)
         {
             EnsureMats();
+            var lit = Shader.Find("Universal Render Pipeline/Lit");
+            var innerEar = new Material(lit); innerEar.SetColor("_BaseColor", new Color(0.85f, 0.6f, 0.6f));
+            var nose = new Material(lit); nose.SetColor("_BaseColor", new Color(0.72f, 0.45f, 0.45f));
+
             var root = new GameObject("Body").transform;
             root.SetParent(parent, false);
 
-            Blob(root, "Torso", 0.16f, new Vector3(0.8f, 0.85f, 1.25f), _fur, new Vector3(0, 0.17f, 0), seed);
-            Blob(root, "Head", 0.09f, Vector3.one, _fur, new Vector3(0, 0.3f, 0.16f), seed + 1);
-            Blob(root, "Tail", 0.05f, Vector3.one, _furLight, new Vector3(0, 0.2f, -0.19f), seed + 2);
-            Blob(root, "Belly", 0.1f, new Vector3(0.75f, 0.6f, 1f), _furLight, new Vector3(0, 0.1f, 0.02f), seed + 3);
+            // haunches highest, chest lower and forward — the classic crouch
+            Blob(root, "Rump", 0.135f, new Vector3(0.95f, 0.95f, 1.0f), _fur, new Vector3(0, 0.155f, -0.075f), seed);
+            Blob(root, "Chest", 0.105f, new Vector3(0.9f, 0.85f, 1.15f), _fur, new Vector3(0, 0.115f, 0.09f), seed + 1);
+            Blob(root, "Belly", 0.085f, new Vector3(0.8f, 0.55f, 1.3f), _furLight, new Vector3(0, 0.075f, 0.01f), seed + 2);
 
+            // head sits forward and low, with a tapered muzzle
+            var head = Blob(root, "Head", 0.072f, new Vector3(0.95f, 0.95f, 1.1f), _fur, new Vector3(0, 0.215f, 0.185f), seed + 3);
+            Blob(head.transform, "Muzzle", 0.042f, new Vector3(0.85f, 0.75f, 1.25f), _fur, new Vector3(0, -0.022f, 0.055f), seed + 4);
+            Blob(head.transform, "Nose", 0.014f, new Vector3(1f, 0.8f, 1f), nose, new Vector3(0, -0.022f, 0.093f), seed + 5);
+
+            // powerful hind legs folded alongside the body
             for (int i = 0; i < 2; i++)
             {
-                var ear = new GameObject("Ear");
-                ear.transform.SetParent(root, false);
-                ear.transform.localPosition = new Vector3(i == 0 ? -0.035f : 0.035f, 0.38f, 0.13f);
-                ear.transform.localRotation = Quaternion.Euler(-12f, 0, i == 0 ? -8f : 8f);
-                ear.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(0.022f, 0.14f, 6, 0.012f);
-                ear.AddComponent<MeshRenderer>().sharedMaterial = _fur;
+                float side = i == 0 ? -1f : 1f;
+                Blob(root, "Haunch", 0.072f, new Vector3(0.55f, 0.95f, 1.25f), _fur,
+                    new Vector3(side * 0.085f, 0.115f, -0.06f), seed + 6 + i);
+                var foot = Blob(root, "HindFoot", 0.032f, new Vector3(0.7f, 0.5f, 2.1f), _fur,
+                    new Vector3(side * 0.075f, 0.03f, -0.015f), seed + 8 + i);
+                foot.transform.localRotation = Quaternion.Euler(0, side * 4f, 0);
 
-                Blob(root, "Eye", 0.014f, Vector3.one, _eye,
-                    new Vector3(i == 0 ? -0.05f : 0.05f, 0.315f, 0.225f), seed + 4 + i);
+                // tucked forelegs
+                Blob(root, "Foreleg", 0.026f, new Vector3(0.8f, 1.5f, 0.9f), _fur,
+                    new Vector3(side * 0.05f, 0.055f, 0.13f), seed + 10 + i);
+
+                // ears: long, swept back, set well apart with a pink inner face
+                var ear = new GameObject("Ear");
+                ear.transform.SetParent(head.transform, false);
+                ear.transform.localPosition = new Vector3(side * 0.052f, 0.05f, -0.022f);
+                ear.transform.localRotation = Quaternion.Euler(-16f, side * 10f, side * 24f);
+                ear.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(0.026f, 0.155f, 7, 0.011f);
+                ear.AddComponent<MeshRenderer>().sharedMaterial = _fur;
+                var inner = new GameObject("EarInner");
+                inner.transform.SetParent(ear.transform, false);
+                inner.transform.localPosition = new Vector3(0, 0.005f, 0.011f);
+                inner.transform.localScale = new Vector3(0.62f, 0.92f, 0.62f);
+                inner.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(0.026f, 0.155f, 7, 0.011f);
+                inner.AddComponent<MeshRenderer>().sharedMaterial = innerEar;
+
+                // eyes on the sides of the skull, as prey animals have
+                Blob(head.transform, "Eye", 0.0135f, Vector3.one, _eye,
+                    new Vector3(side * 0.056f, 0.012f, 0.026f), seed + 12 + i);
             }
+
+            // white scut
+            Blob(root, "Tail", 0.043f, new Vector3(1f, 0.9f, 0.85f), _furLight, new Vector3(0, 0.175f, -0.185f), seed + 14);
             return root;
         }
 
