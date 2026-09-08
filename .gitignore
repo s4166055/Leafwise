@@ -105,3 +105,8 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Blank project accidentally created inside the repo by Unity Hub "New project"
+/My project (1)/
+# Meta XR SDK build-time generated config
+/Assets/Resources/OVRBuildConfig.asset*
