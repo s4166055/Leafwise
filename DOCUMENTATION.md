@@ -313,6 +313,12 @@ All development is driven and verified through the **Unity MCP relay** (Unity AI
 | `fbd62ef` | Habitat zones — each species lives where it really would |
 | `8aebb48` | Mushrooms react as you approach; Scout names the species and its habitat |
 | `a057fab` | **Fix — Scout orb no longer floats in view as a white ball** |
+| `1cbd852` | **Fix — repaired the manifest so the project can open at all** (duplicate JSON keys; a module that only exists in Unity 6000.5) |
+| `6edad70` | **C8 — one-command Quest 3 XR setup, validation and APK build** |
+| `a481fa4` | C8 — automated forest self-test (52 assertions, runs itself in play mode) |
+| `fb15fa5` | C8 — [SIDELOAD.md](SIDELOAD.md), the headset-day install guide |
+| `c2582df` | Ignore a blank project Unity Hub scaffolded inside the repo |
+| `14ce337` | C8 — serialised Quest player + OpenXR settings |
 
 ---
 
@@ -322,10 +328,102 @@ All development is driven and verified through the **Unity MCP relay** (Unity AI
 |---|---|
 | C6 | Deer (quiet approach), fox (steals unsecured food), bear (never run), ambient birds/owl, **day→night cycle** (gives Warmth real stakes, completes “survive to nightfall”) |
 | C7 | Shelter building (**ProBuilder** geometry), visible **Scout companion** voicing the existing hint bus, cooking mushrooms **and fish** on the fire, fishing, berry bushes, session summary |
-| C8 | Quest 3 APK (toolchain installed: Android SDK/NDK/OpenJDK for 6000.3.21f1), on-device profiling — ~11 k renderers may need foliage-card trimming/culling; Burst fallback `-burst-disable-compilation` prepared |
+| C8 | ✅ **Complete** — APK built and verified (§12). Outstanding: **on-device profiling**, which genuinely cannot be done until the headset arrives. ~10.4 k renderers is the likely bottleneck; the tuning order and the Burst `-burst-disable-compilation` fallback are written up in [SIDELOAD.md](SIDELOAD.md) |
 | Audio | Structurally verified; audible pass needs a focused editor / headset |
 | ai-game.dev skills | 108 skill files exported globally; their CLI execution requires an interactive `unity-mcp-cli login` (cloud account) — all equivalent operations run through the Unity relay instead |
 | Editor stability | The MCP plugin’s cloud reconnect could deadlock domain reloads — auto-connect disabled (`Forage ▸ Disable MCP Plugin Auto-Connect`) |
+
+---
+
+## 12. C8 — Quest 3 build pipeline
+
+### 12.1 Settings as code, not as clicks
+
+Every Quest setting is applied by [QuestBuild.cs](Assets/Editor/Forage/QuestBuild.cs) rather than checked into the inspector by hand. The reason is practical: inspector state lives in binary-ish project assets that nobody reviews, and it silently differs between machines. In code it appears in a diff, and any teammate reproduces it by running one menu item.
+
+**Menu: Forage ▸ Quest**
+
+| Item | Does |
+|---|---|
+| `1 - Configure XR and Player Settings` | Applies the full Quest configuration below |
+| `2 - Validate Build Readiness` | 12 pre-flight checks, prints a PASS/FAIL table |
+| `3 - Build APK` | Validates, then builds `Builds/Leafwise.apk` |
+| `4 - Build and Run on Headset` | Same, then installs and launches over USB |
+
+| Setting | Value | Why |
+|---|---|---|
+| Scripting backend | IL2CPP | Mono is not supported on Android/Quest |
+| Architecture | **ARM64 only** | Quest 3 is 64-bit; shipping armeabi-v7a just inflates the APK |
+| Graphics API | **Vulkan** | Meta's recommended path on Quest 3 |
+| Stereo rendering | **Single-pass instanced** (multi-view) | Renders both eyes in one pass — the single largest VR GPU saving |
+| Colour space | Linear | Correct lighting; gamma looks washed out |
+| Min SDK | 32 | Meta store floor for Quest 3 |
+| Bundle id | `com.rmit.forage` | Stable app identity so `adb install -r` updates in place |
+| XR loader | OpenXR (Android), assigned via `XRPackageMetadataStore` | The modern path; the legacy Oculus plugin is deprecated |
+| OpenXR features | Meta Quest Support + Touch Plus / Touch Pro / Oculus Touch profiles | **Without an interaction profile the controllers report no input on device** — a silent failure that only shows up in the headset |
+
+### 12.2 Validation gate
+
+Step 2 exists so a misconfiguration fails in seconds instead of thirty minutes into IL2CPP. Result:
+
+```
+PASS  Forage scene exists                     PASS  Vulkan is the primary graphics API
+PASS  Forage scene is in build settings       PASS  OpenXR loader active for Android
+PASS  IL2CPP scripting backend                PASS  Meta Quest OpenXR feature enabled
+PASS  ARM64 only                              PASS  A controller interaction profile is enabled
+PASS  minSdkVersion 32 or higher              PASS  Android Build Support installed
+PASS  Linear colour space
+PASS  Multi-view (single pass instanced)      READY TO BUILD
+```
+
+### 12.3 Build result
+
+```
+[Forage] BUILD SUCCEEDED -> Builds\Leafwise.apk  (1554.5 MB in 29.6 min)
+```
+
+86 MB on disk (1554.5 MB is Unity's uncompressed total). Verified by inspecting the APK as a zip archive — the build "succeeding" is not by itself proof it will run on a Quest:
+
+| Check | Result |
+|---|---|
+| Native ABIs present | **`arm64-v8a` only** — no wasted 32-bit slice |
+| `libil2cpp.so` | present — IL2CPP genuinely used |
+| `libopenxr_loader.so`, `libUnityOpenXR.so`, `libUnityOpenXRHands.so` | present — XR runtime shipped |
+| Package id in manifest | `com.rmit.forage` |
+| Manifest targets | Oculus / HorizonOS |
+| Entries / arm64 libs | 856 / 22 |
+
+Install instructions: [SIDELOAD.md](SIDELOAD.md).
+
+### 12.4 Automated forest verification
+
+The world is generated in `ForestGenerator.Awake()`, so it exists only in play mode and cannot be checked from the saved scene. [ForageSelfTest.cs](Assets/Editor/Forage/ForageSelfTest.cs) drives the editor through *open scene → enter play → settle → assert → exit play* and writes a report. Its phase lives in `SessionState` so it survives the domain reloads play mode causes, and dropping a `Temp/forage-selftest.request` file starts it from outside the editor.
+
+**Result: 51 of 52 assertions passed on the first run.** The single failure was a defect in the test, not the game — it measured `SprintController`'s transform, which sits on the systems container at the origin, rather than the XR rig. Corrected to measure the rig and camera.
+
+Representative measured values:
+
+| Assertion | Measured |
+|---|---|
+| Camp is not a crater | camp 3.15 m vs forest ring at 20 m 2.95 m — **delta 0.20 m** |
+| Fire pit rests on ground | pit y 3.17, ground 3.17 — **delta 0.00 m** |
+| Forest density | **10,426** mesh renderers, 6,638 tree-ish |
+| Wind coverage | **9,269** renderers swaying, 7 materials on `Forage/FoliageWind` |
+| Water transparency | alpha **0.45**, 35 fish/crabs below the surface |
+| Habitat zones | all five present; origin classifies as `Camp` |
+| Animal placement | deer → `Meadow`, squirrels → `Woodland`; snakes **0 alive at start** (proximity-spawned) |
+| Animals grounded | every animal within **0.02–0.15 m** of the terrain |
+| Materials | **no** missing or error (magenta) materials |
+
+The assertions deliberately pin the bugs we have actually shipped before — camp in a crater, fire pit in a hole, deer buried in the ground, magenta materials, player falling through terrain — so a future change that reintroduces one is caught by a test rather than by eye.
+
+### 12.5 Three blockers fixed to get here
+
+Worth recording, because they were all environmental rather than gameplay bugs:
+
+1. **`packages-lock.json` was not valid JSON** — duplicate keys (`com.unity.test-framework`, `com.unity.nuget.newtonsoft-json`). Unity exited with code 1 and loaded no packages at all.
+2. **`com.unity.modules.physicscore2d` does not exist in 6000.3.21f1** — it ships with Unity 6000.5 and arrived with the merged `environment` branch. The GUI tolerated it; batch mode called it fatal.
+3. **Unity Hub had never been told about Leafwise.** It only knew `My project`, which is why the editor kept opening the blank blue sample scene. Fixed by registering `E:\unity\Leafwise` in the Hub — use **Add ▸ Add project from disk**, never *New project* (which scaffolds a fresh empty project, as it did once into this very folder).
 
 ---
 
