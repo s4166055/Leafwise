@@ -427,4 +427,79 @@ Worth recording, because they were all environmental rather than gameplay bugs:
 
 ---
 
+## 13. Headset findings and fixes (first on-device test)
+
+The first real Quest 3 session produced three reports. All three were genuine, and the first was the most serious: the game was only playable with the joystick, and moving your head did not give the VR experience it should.
+
+### 13.1 The head-tracking report — root cause
+
+The rig was saved with a **seated** tracking origin:
+
+```
+m_RequestedTrackingOriginMode: 1   ← Device
+m_CameraYOffset: 1.7
+```
+
+`Device` is the 3DOF origin. It pins the tracking origin to wherever the head happened to be at app start, ignores the real floor, and therefore needs a *faked* eye height — which is exactly what that 1.7 m offset was doing. Physical movement is measured from an arbitrary point rather than from the room, so stepping, leaning and crouching never map 1:1 to the view, and locomotion collapses onto the joystick.
+
+The rig now requests **Floor** (stage space), the correct origin for a standing room-scale title: the headset reports true head height and position, so walking, leaning, crouching and turning drive the view directly. The faked offset is removed, since the runtime supplies real height and any offset of ours would stack on top of it.
+
+Requesting Floor is not a guarantee — a headset with no room boundary, or one in a stationary profile, can hand back Device. [VrTrackingSetup.cs](Assets/Scripts/Forage/Core/VrTrackingSetup.cs) checks what was actually granted and applies a seated eye height *only* if Floor was refused, logging every branch:
+
+```
+[Forage] VR: supported tracking origin modes = Device, Floor
+[Forage] VR: tracking origin mode in use = Floor
+[Forage] VR: ROOM-SCALE ACTIVE — physically walking, leaning and crouching move the view.
+[Forage] VR head check: device valid=True tracked=True | moved 0.184 m, turned 27.3 deg over 2 s
+```
+
+That last line exists so "head tracking does nothing" can be confirmed or ruled out from `adb logcat -s Unity:V` rather than from feel.
+
+**Ruled out with evidence** before changing anything, so the record is clear: the XR Interaction Simulator was *not* shipping in the build (`m_AutomaticallyInstantiateInEditorOnly: 1`); the Android manifest is correctly an immersive VR app (`com.oculus.intent.category.VR`, `supportedDevices: quest2|questpro|quest3|quest3s`, `vr.headtracking` — the absent `vr_only` key is the obsolete Gear-VR-era declaration); `TrackedPoseDriver` is present on the rig camera; movement was already head-relative (`forwardSource = Main Camera`); and no second camera was rendering over the XR one.
+
+`SpawnGuard`'s head clearance also had to drop from **1.5 m to 0.25 m**. At eye height it would shove the rig upward every frame the player crouched — fighting them and drifting the rig skyward — because under real tracking a low head is a legitimate pose, not a fall-through.
+
+### 13.2 The movement-speed report — the setting was never the limiter
+
+Travel felt slow despite a 12 m/s setting, because the `CharacterController` kept its defaults: **45° slope limit and a 0.3 m step offset**. On hilly ground littered with roots, rocks and fallen logs the player snagged constantly, so real travel was a fraction of the configured speed. Widened to **60° and 0.6 m** — that is the fix that makes the forest feel crossable.
+
+Speeds raised on top of it: **walk 16 m/s, run 30 m/s**. `SprintController` now drives *every* `ContinuousMoveProvider` on the rig instead of the first one `FindFirstObjectByType` happened to return, and logs what it applied — a rig carrying two providers would otherwise leave one at its prefab default of 2.5 m/s, making the felt pace depend on which one drove the player.
+
+### 13.3 The animal-fidelity report
+
+The squirrel looked well defined because it is a real model with albedo and normal maps. Every procedural mammal was a flat `_BaseColor` on a smooth blob: one evenly lit surface with no high-frequency detail, which is precisely why they read as plasticine beside it.
+
+`AnimalFactory.FurMaterial` now bakes a coat per species — an albedo of directional strands over a darker undercoat, plus a **normal map** derived from the same strand height field. The normal map is the part that matters; per-pixel relief is what lets the eye resolve a surface as hair. Strands run along V because `SmoothBlob` lays out spherical UVs, so fur lies along the body instead of swirling around it.
+
+| Species | Strand density | Character |
+|---|---|---|
+| Bear | 34 | long, shaggy, strong relief — seen closest, so it gains the most |
+| Fox | 46 | medium length, slightly glossy |
+| Deer | 68 | short, dense, lies flat |
+| Rabbit | 52 | the shared mid/light coat |
+
+Eyes gained real specular response; matte spheres for eyes are one of the strongest toy signals on an otherwise decent model. Body and head blobs on the bear, fox and rabbit went from subdivision 1 to 2 so silhouettes read smoothly.
+
+Checked by rendering the rabbit and coat swatches through an offscreen camera and looking at the image, not by assuming. The first attempt leaned on a low-frequency clump term and looked like wet clay; the noise is now weighted toward its finer octaves.
+
+### 13.4 The test harness was reading a frozen frame
+
+Worth recording as a methodology fix. An unfocused editor throttles — often halts — the player loop, so `Awake` and `Start` ran but nothing after the first `yield` did: coroutines, `Update` and NavMesh settling all stalled. That is how `VrTrackingSetup` could log its first line and then appear to do nothing, with no hint why. The settle phase now drives `EditorApplication.Step()`, making the wait real whether or not the window has focus.
+
+Stepping immediately exposed three assertions that were testing the frozen frame rather than the design, all of which had been passing for the wrong reason:
+
+| Assertion | Why it was wrong | Now |
+|---|---|---|
+| `snakes == 0` at start | proximity spawning genuinely fires for a zone near camp | `alive < zones` — not all pre-placed |
+| no visible Scout renderers | Scout actually speaks its opening hint | tied to `ScoutCompanion.IsSpeaking` |
+| habitat by live position | animals wander; a squirrel had walked to the pond | `Animal.SpawnZone`, recorded at placement |
+
+**56 assertions, all passing** against a stepping simulation.
+
+### 13.5 Build note
+
+The APK build failed four times before succeeding, and none of it was code: a security product on this machine (`Reason Cybersecurity`, which is why Defender reports itself disabled) intermittently denies *execution* of the NDK linker `ld.lld.exe` under build load. Run manually it works fine (`LLD 18.0.3`), so the error never means the NDK is broken. Retrying is the fix — IL2CPP output is cached, so a retry links in about a minute. Clearing `Library/Bee` and `-burst-disable-compilation` both did not help. The permanent fix is an antivirus exclusion for `C:\Program Files\Unity` and `E:\unity\Leafwise`.
+
+---
+
 *Generated as part of the checkpoint-driven build. The scene can always be rebuilt from scratch via **Forage ▸ Build Forage Scene** — code is the single source of truth.*
