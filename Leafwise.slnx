@@ -32,7 +32,7 @@
   <Project Path="Meta.XR.ImmersiveDebugger.csproj" />
   <Project Path="Unity.AI.Mesh.csproj" />
   <Project Path="UnityEngine.UI.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Forage.csproj" />
   <Project Path="Meta.WitAi.Editor.csproj" />
   <Project Path="Unity.XR.Simulation.Editor.csproj" />
   <Project Path="Meta.XR.RuntimeOptimizer.Core.csproj" />
@@ -123,7 +123,7 @@
   <Project Path="VoiceSDK.Editor.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Analytics.Editor.csproj" />
   <Project Path="Unity.TestTools.CodeCoverage.Editor.OpenCover.Mono.Reflection.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="Forage.Editor.csproj" />
   <Project Path="Unity.ProBuilder.KdTree.csproj" />
   <Project Path="Unity.XR.Management.Editor.csproj" />
   <Project Path="com.IvanMurzak.Unity.MCP.Animation.Runtime.csproj" />
@@ -142,6 +142,7 @@
   <Project Path="Unity.AI.Toolkit.Asset.csproj" />
   <Project Path="Meta.XR.Editor.MetaXROperator.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Analytics.Hooks.Editor.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.Collections.CodeGen.csproj" />
   <Project Path="Unity.XR.Hands.Samples.VisualizerSample.csproj" />
   <Project Path="Meta.XR.MetaWand.Editor.csproj" />
@@ -253,6 +254,7 @@
   <Project Path="Unity.XR.OpenXR.Features.OculusQuestSupport.csproj" />
   <Project Path="Unity.AI.Toolkit.Compliance.csproj" />
   <Project Path="Meta.Voice.VSDKHub.Editor.csproj" />
+  <Project Path="Forage.Tests.PlayMode.csproj" />
   <Project Path="Meta.XR.BuildingBlocks.DepthAPI.Editor.csproj" />
   <Project Path="Unity.ProBuilder.AddOns.Editor.csproj" />
   <Project Path="Unity.XR.OpenXR.Features.MetaQuestSupport.Editor.csproj" />
@@ -278,5 +280,6 @@
   <Project Path="Unity.XR.Hands.Analytics.Hooks.Editor.csproj" />
   <Project Path="Oculus.Interaction.InterfaceSupport.csproj" />
   <Project Path="UnityEditor.SpatialTracking.csproj" />
+  <Project Path="Forage.Tests.EditMode.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.Config.Runtime.csproj" />
 </Solution>
