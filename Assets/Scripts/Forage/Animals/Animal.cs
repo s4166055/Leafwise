@@ -41,6 +41,17 @@ namespace Forage
         /// </summary>
         public Habitat.Zone SpawnZone { get; private set; }
 
+        /// <summary>
+        /// Whether the spawner actually found a spot in this species' habitat.
+        /// AnimalManager.ZoneSpawn falls back to "anywhere walkable" after six
+        /// failed attempts; that fallback is legitimate for gameplay but it is
+        /// the spawner's decision, and the spawner is the only thing that knows
+        /// it happened. Tests assert this flag rather than re-deriving a zone
+        /// from the position, which would fail a correct fallback as if the
+        /// placement rule were broken.
+        /// </summary>
+        public bool PlacementSatisfied { get; internal set; } = true;
+
         protected virtual void Awake()
         {
             agent = GetComponent<NavMeshAgent>();

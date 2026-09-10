@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Forage
@@ -5,22 +6,25 @@ namespace Forage
     /// <summary>Procedural animal bodies (rabbit, snake). Squirrel uses the Furry Squirrel FBX.</summary>
     public static class AnimalFactory
     {
-        static Material _fur;
-        static Material _furLight;
-        static Material _snakeSkin;
-        static Material _eye;
+        // One keyed cache for every generated material - fur coats, snake skins,
+        // the eye. A single owner means a single lifetime: a fake-null (destroyed)
+        // entry is simply regenerated, and the cache is cleared explicitly on
+        // subsystem registration so it is correct whether or not Domain Reload
+        // is enabled in the editor.
+        static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
 
-        static readonly System.Collections.Generic.Dictionary<string, Material> _furCache =
-            new System.Collections.Generic.Dictionary<string, Material>();
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetCache() => _cache.Clear();
 
-        static void EnsureMats()
+        static Material Cached(string key, System.Func<Material> make)
         {
-            if (_fur != null) return;
-            _fur = FurMaterial("fur-mid", new Color(0.5f, 0.4f, 0.3f), new Color(0.3f, 0.23f, 0.16f), 11);
-            _furLight = FurMaterial("fur-light", new Color(0.8f, 0.74f, 0.64f), new Color(0.56f, 0.5f, 0.42f), 12);
-            _snakeSkin = SnakeSkin(new Color(0.35f, 0.42f, 0.2f), new Color(0.2f, 0.25f, 0.12f), 13);
-            _eye = EyeMaterial(new Color(0.05f, 0.04f, 0.035f));
+            if (_cache.TryGetValue(key, out var m) && m != null) return m;
+            m = make();
+            _cache[key] = m;
+            return m;
         }
+
+        static Material Lit() => new Material(Shader.Find("Universal Render Pipeline/Lit"));
 
         /// <summary>
         /// A wet, glossy eye. Flat matte spheres are one of the biggest reasons
@@ -29,11 +33,14 @@ namespace Forage
         /// </summary>
         public static Material EyeMaterial(Color col)
         {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            var mat = Lit();
             mat.SetColor("_BaseColor", col);
             mat.SetFloat("_Smoothness", 0.95f);
             return mat;
         }
+
+        /// <summary>The shared dark eye every species uses.</summary>
+        public static Material Eye => Cached("eye", () => EyeMaterial(new Color(0.05f, 0.04f, 0.035f)));
 
         /// <summary>
         /// Procedural fur: an albedo of directional strands over a darker
@@ -50,84 +57,98 @@ namespace Forage
         /// Strands are stretched along V because SmoothBlob lays out spherical
         /// UVs (U wraps around the body, V runs pole to pole), so the fur lies
         /// along the animal instead of swirling around it.
+        ///
+        /// Bakes happen on the main thread at spawn, so they are kept cheap:
+        /// 128 px by default (fur tiles anyway), Color32 staging, and the CPU
+        /// copy is released after upload. All ten species coats together cost
+        /// well under a frame on Quest hardware.
+        ///
+        /// NOTE: <c>_NORMALMAP</c> is a shader_feature. Materials created at
+        /// runtime are invisible to URP's build-time variant collection, so the
+        /// scene must reference at least one material asset with the keyword
+        /// enabled or the variant is stripped from the APK and this silently
+        /// renders flat on device. ForageSceneBuilder assigns that anchor
+        /// material to AnimalManager.shaderVariantAnchor.
         /// </summary>
         public static Material FurMaterial(string key, Color baseCol, Color underCol, int seed,
-                                           float strandDensity = 52f, float smoothness = 0.18f)
+                                           float strandDensity = 52f, float smoothness = 0.18f, int size = 128)
         {
-            if (_furCache.TryGetValue(key, out var cached) && cached != null) return cached;
+            return Cached(key, () =>
+            {
+                float ox = seed * 7.31f % 500f;
 
-            const int size = 256;
-            float ox = seed * 7.31f % 500f;
+                // shared height field: fine strands across U, stretched along V.
+                // Weighted toward the finer octaves - a heavy low-frequency clump
+                // term made the coat look lumpy, like wet clay, rather than hair.
+                var height = new float[size, size];
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        float u = (float)x / size, v = (float)y / size;
+                        float strand = Mathf.PerlinNoise(u * strandDensity + ox, v * strandDensity * 0.15f + ox);
+                        float fine = Mathf.PerlinNoise(u * strandDensity * 3.2f + ox * 2f, v * strandDensity * 0.5f);
+                        float finer = Mathf.PerlinNoise(u * strandDensity * 6.5f + ox * 4f, v * strandDensity * 0.9f);
+                        float clump = Mathf.PerlinNoise(u * 5f + ox * 3f, v * 4f + ox);
+                        height[x, y] = Mathf.Clamp01(strand * 0.44f + fine * 0.30f + finer * 0.14f + clump * 0.16f);
+                    }
 
-            // shared height field: fine strands across U, stretched along V
-            var height = new float[size, size];
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    float u = (float)x / size, v = (float)y / size;
-                    // Weighted toward the finer octaves: a heavy low-frequency
-                    // clump term made the coat look lumpy, like wet clay, rather
-                    // than like hair. Fine detail carries the fur read; the
-                    // clump only breaks up uniformity.
-                    float strand = Mathf.PerlinNoise(u * strandDensity + ox, v * strandDensity * 0.15f + ox);
-                    float fine = Mathf.PerlinNoise(u * strandDensity * 3.2f + ox * 2f, v * strandDensity * 0.5f);
-                    float finer = Mathf.PerlinNoise(u * strandDensity * 6.5f + ox * 4f, v * strandDensity * 0.9f);
-                    float clump = Mathf.PerlinNoise(u * 5f + ox * 3f, v * 4f + ox);
-                    height[x, y] = Mathf.Clamp01(strand * 0.44f + fine * 0.30f +
-                                                 finer * 0.14f + clump * 0.16f);
-                }
+                var albedo = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat };
+                var px = new Color32[size * size];
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        float h = height[x, y];
+                        // tips catch the light, roots stay in the undercoat
+                        var c = Color.Lerp(underCol, baseCol, Mathf.SmoothStep(0.15f, 0.85f, h));
+                        c *= 0.9f + h * 0.22f;
+                        c.a = 1f;
+                        px[y * size + x] = c;
+                    }
+                albedo.SetPixels32(px);
+                albedo.Apply(true, true);
 
-            var albedo = new Texture2D(size, size, TextureFormat.RGB24, true) { wrapMode = TextureWrapMode.Repeat };
-            var px = new Color[size * size];
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    float h = height[x, y];
-                    // tips catch the light, roots stay in the undercoat
-                    var c = Color.Lerp(underCol, baseCol, Mathf.SmoothStep(0.15f, 0.85f, h));
-                    c *= 0.9f + h * 0.22f;
-                    px[y * size + x] = c;
-                }
-            albedo.SetPixels(px);
-            albedo.Apply(true);
+                // normal map from the same field (sobel); linear so it is not gamma-corrected
+                var normal = new Texture2D(size, size, TextureFormat.RGBA32, true, true) { wrapMode = TextureWrapMode.Repeat };
+                var npx = new Color32[size * size];
+                const float relief = 3.2f;
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        int xm = (x - 1 + size) % size, xp = (x + 1) % size;
+                        int ym = (y - 1 + size) % size, yp = (y + 1) % size;
+                        float dx = (height[xp, y] - height[xm, y]) * relief;
+                        float dy = (height[x, yp] - height[x, ym]) * relief;
+                        var n = new Vector3(-dx, -dy, 1f).normalized;
+                        npx[y * size + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
+                    }
+                normal.SetPixels32(npx);
+                normal.Apply(true, true);
 
-            // normal map from the same field (sobel), linear so it is not gamma-corrected
-            var normal = new Texture2D(size, size, TextureFormat.RGBA32, true, true)
-            { wrapMode = TextureWrapMode.Repeat };
-            var npx = new Color[size * size];
-            const float relief = 3.2f;
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    int xm = (x - 1 + size) % size, xp = (x + 1) % size;
-                    int ym = (y - 1 + size) % size, yp = (y + 1) % size;
-                    float dx = (height[xp, y] - height[xm, y]) * relief;
-                    float dy = (height[x, yp] - height[x, ym]) * relief;
-                    var n = new Vector3(-dx, -dy, 1f).normalized;
-                    npx[y * size + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
-                }
-            normal.SetPixels(npx);
-            normal.Apply(true);
-
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.SetTexture("_BaseMap", albedo);
-            mat.SetColor("_BaseColor", Color.white);
-            mat.SetTexture("_BumpMap", normal);
-            mat.SetFloat("_BumpScale", 1.0f);
-            mat.EnableKeyword("_NORMALMAP");
-            mat.SetFloat("_Smoothness", smoothness);   // fur is matte, not plastic
-            mat.SetFloat("_Metallic", 0f);
-
-            _furCache[key] = mat;
-            return mat;
+                var mat = Lit();
+                mat.SetTexture("_BaseMap", albedo);
+                mat.SetColor("_BaseColor", Color.white);
+                mat.SetTexture("_BumpMap", normal);
+                mat.SetFloat("_BumpScale", 1.0f);
+                mat.EnableKeyword("_NORMALMAP");
+                mat.SetFloat("_Smoothness", smoothness);   // fur is matte, not plastic
+                mat.SetFloat("_Metallic", 0f);
+                return mat;
+            });
         }
 
-        static GameObject Blob(Transform parent, string name, float r, Vector3 squash, Material mat, Vector3 pos, int seed)
+        /// <summary>
+        /// A jittered sphere part. <paramref name="subdivisions"/> defaults to 1
+        /// (32 tris): eyes, noses and feet cover a few pixels at VR distance and
+        /// gain nothing from more. Pass 2 for the large body masses whose
+        /// silhouette the player actually reads.
+        /// </summary>
+        public static GameObject Blob(Transform parent, string name, float r, Vector3 squash, Material mat,
+                                      Vector3 pos, int seed, int subdivisions = 1)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = pos;
-            go.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(r, 2, 0.06f, seed, squash);
+            go.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(r, subdivisions, 0.06f, seed, squash);
             go.AddComponent<MeshRenderer>().sharedMaterial = mat;
             return go;
         }
@@ -139,36 +160,36 @@ namespace Forage
         /// </summary>
         public static Transform RabbitBody(Transform parent, int seed)
         {
-            EnsureMats();
-            var lit = Shader.Find("Universal Render Pipeline/Lit");
-            var innerEar = new Material(lit); innerEar.SetColor("_BaseColor", new Color(0.85f, 0.6f, 0.6f));
-            var nose = new Material(lit); nose.SetColor("_BaseColor", new Color(0.72f, 0.45f, 0.45f));
+            var fur = FurMaterial("fur-mid", new Color(0.5f, 0.4f, 0.3f), new Color(0.3f, 0.23f, 0.16f), 11);
+            var furLight = FurMaterial("fur-light", new Color(0.8f, 0.74f, 0.64f), new Color(0.56f, 0.5f, 0.42f), 12);
+            var innerEar = Cached("rabbit-inner-ear", () => { var m = Lit(); m.SetColor("_BaseColor", new Color(0.85f, 0.6f, 0.6f)); return m; });
+            var nose = Cached("rabbit-nose", () => { var m = Lit(); m.SetColor("_BaseColor", new Color(0.72f, 0.45f, 0.45f)); return m; });
 
             var root = new GameObject("Body").transform;
             root.SetParent(parent, false);
 
             // haunches highest, chest lower and forward — the classic crouch
-            Blob(root, "Rump", 0.135f, new Vector3(0.95f, 0.95f, 1.0f), _fur, new Vector3(0, 0.155f, -0.075f), seed);
-            Blob(root, "Chest", 0.105f, new Vector3(0.9f, 0.85f, 1.15f), _fur, new Vector3(0, 0.115f, 0.09f), seed + 1);
-            Blob(root, "Belly", 0.085f, new Vector3(0.8f, 0.55f, 1.3f), _furLight, new Vector3(0, 0.075f, 0.01f), seed + 2);
+            Blob(root, "Rump", 0.135f, new Vector3(0.95f, 0.95f, 1.0f), fur, new Vector3(0, 0.155f, -0.075f), seed, 2);
+            Blob(root, "Chest", 0.105f, new Vector3(0.9f, 0.85f, 1.15f), fur, new Vector3(0, 0.115f, 0.09f), seed + 1, 2);
+            Blob(root, "Belly", 0.085f, new Vector3(0.8f, 0.55f, 1.3f), furLight, new Vector3(0, 0.075f, 0.01f), seed + 2, 2);
 
             // head sits forward and low, with a tapered muzzle
-            var head = Blob(root, "Head", 0.072f, new Vector3(0.95f, 0.95f, 1.1f), _fur, new Vector3(0, 0.215f, 0.185f), seed + 3);
-            Blob(head.transform, "Muzzle", 0.042f, new Vector3(0.85f, 0.75f, 1.25f), _fur, new Vector3(0, -0.022f, 0.055f), seed + 4);
+            var head = Blob(root, "Head", 0.072f, new Vector3(0.95f, 0.95f, 1.1f), fur, new Vector3(0, 0.215f, 0.185f), seed + 3, 2);
+            Blob(head.transform, "Muzzle", 0.042f, new Vector3(0.85f, 0.75f, 1.25f), fur, new Vector3(0, -0.022f, 0.055f), seed + 4);
             Blob(head.transform, "Nose", 0.014f, new Vector3(1f, 0.8f, 1f), nose, new Vector3(0, -0.022f, 0.093f), seed + 5);
 
             // powerful hind legs folded alongside the body
             for (int i = 0; i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
-                Blob(root, "Haunch", 0.072f, new Vector3(0.55f, 0.95f, 1.25f), _fur,
-                    new Vector3(side * 0.085f, 0.115f, -0.06f), seed + 6 + i);
-                var foot = Blob(root, "HindFoot", 0.032f, new Vector3(0.7f, 0.5f, 2.1f), _fur,
+                Blob(root, "Haunch", 0.072f, new Vector3(0.55f, 0.95f, 1.25f), fur,
+                    new Vector3(side * 0.085f, 0.115f, -0.06f), seed + 6 + i, 2);
+                var foot = Blob(root, "HindFoot", 0.032f, new Vector3(0.7f, 0.5f, 2.1f), fur,
                     new Vector3(side * 0.075f, 0.03f, -0.015f), seed + 8 + i);
                 foot.transform.localRotation = Quaternion.Euler(0, side * 4f, 0);
 
                 // tucked forelegs
-                Blob(root, "Foreleg", 0.026f, new Vector3(0.8f, 1.5f, 0.9f), _fur,
+                Blob(root, "Foreleg", 0.026f, new Vector3(0.8f, 1.5f, 0.9f), fur,
                     new Vector3(side * 0.05f, 0.055f, 0.13f), seed + 10 + i);
 
                 // ears: long, swept back, set well apart with a pink inner face
@@ -177,7 +198,7 @@ namespace Forage
                 ear.transform.localPosition = new Vector3(side * 0.052f, 0.05f, -0.022f);
                 ear.transform.localRotation = Quaternion.Euler(-16f, side * 10f, side * 24f);
                 ear.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(0.026f, 0.155f, 7, 0.011f);
-                ear.AddComponent<MeshRenderer>().sharedMaterial = _fur;
+                ear.AddComponent<MeshRenderer>().sharedMaterial = fur;
                 var inner = new GameObject("EarInner");
                 inner.transform.SetParent(ear.transform, false);
                 inner.transform.localPosition = new Vector3(0, 0.005f, 0.011f);
@@ -186,24 +207,33 @@ namespace Forage
                 inner.AddComponent<MeshRenderer>().sharedMaterial = innerEar;
 
                 // eyes on the sides of the skull, as prey animals have
-                Blob(head.transform, "Eye", 0.0135f, Vector3.one, _eye,
+                Blob(head.transform, "Eye", 0.0135f, Vector3.one, Eye,
                     new Vector3(side * 0.056f, 0.012f, 0.026f), seed + 12 + i);
             }
 
             // white scut
-            Blob(root, "Tail", 0.043f, new Vector3(1f, 0.9f, 0.85f), _furLight, new Vector3(0, 0.175f, -0.185f), seed + 14);
+            Blob(root, "Tail", 0.043f, new Vector3(1f, 0.9f, 0.85f), furLight, new Vector3(0, 0.175f, -0.185f), seed + 14);
             return root;
         }
 
         public static float SegmentSpacing(float scale) => 0.075f * scale;
 
+        /// <summary>
+        /// One skin per species, not per snake. Zone snakes are destroyed and
+        /// respawned as the player wanders, and Destroy() on the GameObject does
+        /// not free a code-created Texture2D - so an uncached bake here leaked
+        /// ~350 KB and a main-thread hitch every time a snake materialised,
+        /// which is precisely the moment the freeze encounter begins.
+        /// </summary>
+        public static Material SnakeSkinFor(SnakeSpecies species) =>
+            Cached("snake-" + species.name, () =>
+                SnakeSkin(species.baseColor, species.bandColor, species.name.GetHashCode() & 0xFFFF));
+
         /// <summary>Snake skin: overlapping scale pattern + species banding, generated at runtime.</summary>
-        public static Material SnakeSkin(Color baseCol, Color bandCol, int seed)
+        public static Material SnakeSkin(Color baseCol, Color bandCol, int seed, int size = 128)
         {
-            int size = 256;
-            var tex = new Texture2D(size, size, TextureFormat.RGB24, true);
-            tex.wrapMode = TextureWrapMode.Repeat;
-            var px = new Color[size * size];
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat };
+            var px = new Color32[size * size];
             for (int y = 0; y < size; y++)
                 for (int x = 0; x < size; x++)
                 {
@@ -225,12 +255,13 @@ namespace Forage
 
                     // subtle organic mottle
                     c *= 0.92f + Mathf.PerlinNoise(u * 24f + seed * 2, v * 24f) * 0.16f;
+                    c.a = 1f;
                     px[y * size + x] = c;
                 }
-            tex.SetPixels(px);
-            tex.Apply(true);
+            tex.SetPixels32(px);
+            tex.Apply(true, true);
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            var mat = Lit();
             mat.SetTexture("_BaseMap", tex);
             mat.SetFloat("_Smoothness", 0.5f); // scaly sheen
             return mat;
@@ -244,7 +275,6 @@ namespace Forage
         /// </summary>
         public static Transform[] SnakeBody(Transform parent, int seed, float scale, Material skin, int segments = 16)
         {
-            EnsureMats();
             var list = new Transform[segments];
             for (int i = 0; i < segments; i++)
             {
@@ -264,11 +294,10 @@ namespace Forage
             head.AddComponent<MeshRenderer>().sharedMaterial = skin;
 
             float er = 0.012f * scale;
-            Blob(head.transform, "EyeL", er, Vector3.one, _eye, new Vector3(-0.036f * scale, 0.022f * scale, 0.045f * scale), seed + 90);
-            Blob(head.transform, "EyeR", er, Vector3.one, _eye, new Vector3(0.036f * scale, 0.022f * scale, 0.045f * scale), seed + 91);
+            Blob(head.transform, "EyeL", er, Vector3.one, Eye, new Vector3(-0.036f * scale, 0.022f * scale, 0.045f * scale), seed + 90);
+            Blob(head.transform, "EyeR", er, Vector3.one, Eye, new Vector3(0.036f * scale, 0.022f * scale, 0.045f * scale), seed + 91);
 
-            var tongueMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            tongueMat.SetColor("_BaseColor", new Color(0.75f, 0.1f, 0.12f));
+            var tongueMat = Cached("snake-tongue", () => { var m = Lit(); m.SetColor("_BaseColor", new Color(0.75f, 0.1f, 0.12f)); return m; });
             var tongue = new GameObject("Tongue");
             tongue.transform.SetParent(head.transform, false);
             tongue.transform.localPosition = new Vector3(0, 0, 0.1f * scale);

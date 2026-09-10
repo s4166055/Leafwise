@@ -31,21 +31,8 @@ namespace Forage
             agent.SetDestination(RandomPoint(transform.position, 12f));
         }
 
-        /// <summary>Small solid-colour blob helper for eyes and detail parts.</summary>
-        static void Blob(Transform parent, string name, float radius, Color color, Vector3 localPos, int seed)
-        {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.SetColor("_BaseColor", color);
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPos;
-            go.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(radius, 1, 0.03f, seed, Vector3.one);
-            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
-        }
-
         void BuildBody()
         {
-            var lit = Shader.Find("Universal Render Pipeline/Lit");
             // Textured coats with normal-mapped hair, rather than flat colour.
             // Deer hair is short and lies flat, so the strands are dense and
             // the relief is subtle compared with the bear.
@@ -155,8 +142,9 @@ namespace Forage
                 NatureFactory.SmoothBlob(0.055f, 1, 0.04f, GetInstanceID() + 44, new Vector3(0.8f, 0.7f, 1.2f));
             muzzle.AddComponent<MeshRenderer>().sharedMaterial = dark;
 
+            // glossy shared eye, not a fresh matte material per deer
             for (int e = 0; e < 2; e++)
-                Blob(head.transform, "Eye", 0.014f, new Color(0.06f, 0.05f, 0.04f),
+                AnimalFactory.Blob(head.transform, "Eye", 0.014f, Vector3.one, AnimalFactory.Eye,
                     new Vector3((e == 0 ? -1f : 1f) * 0.072f, 0.028f, 0.03f), GetInstanceID() + 45 + e);
 
             // ears + simple antlers

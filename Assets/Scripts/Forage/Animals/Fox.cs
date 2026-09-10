@@ -32,7 +32,6 @@ namespace Forage
 
         void BuildBody()
         {
-            var lit = Shader.Find("Universal Render Pipeline/Lit");
             // Fox fur is medium-length and slightly glossy, and the brush tail
             // reads best with looser, coarser strands than the body.
             var rust = AnimalFactory.FurMaterial("fox-rust",
