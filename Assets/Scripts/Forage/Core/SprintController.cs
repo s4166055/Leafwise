@@ -12,32 +12,55 @@ namespace Forage
     /// </summary>
     public class SprintController : MonoBehaviour
     {
-        // 3x the previous pace — the forest is crossable without it feeling like a trudge
-        public float walkSpeed = 12.0f;
-        public float runSpeed = 22.0f;
+        // Raised again after headset testing. Note that the real limiter on
+        // felt pace was never this number: the CharacterController's default
+        // 45 deg slope limit and 0.3 m step offset made the player snag on
+        // every bank and root, so actual travel was a fraction of the setting.
+        // Those are widened in ForageSceneBuilder; these are the honest speeds.
+        public float walkSpeed = 16.0f;
+        public float runSpeed = 30.0f;
 
         [Header("Debug/testing")]
         public bool testForceSprint;
 
-        ContinuousMoveProvider _move;
+        // Every continuous provider on the rig, not just the first one found.
+        // DynamicMoveProvider derives from ContinuousMoveProvider, and a rig can
+        // carry more than one; setting only one leaves the other at its prefab
+        // default and the pace depends on which happens to drive you.
+        ContinuousMoveProvider[] _movers;
+        bool _logged;
         static readonly List<InputDevice> _devices = new List<InputDevice>();
 
-        void Start()
+        void Start() => Acquire();
+
+        void Acquire()
         {
-            _move = FindFirstObjectByType<ContinuousMoveProvider>();
-            if (_move != null) _move.moveSpeed = walkSpeed;
+            _movers = FindObjectsByType<ContinuousMoveProvider>(FindObjectsSortMode.None);
+            if (_movers.Length == 0) return;
+            foreach (var m in _movers) m.moveSpeed = walkSpeed;
+
+            if (!_logged)
+            {
+                _logged = true;
+                Debug.Log($"[Forage] Sprint: {_movers.Length} move provider(s) set to " +
+                          $"walk {walkSpeed} / run {runSpeed} m/s " +
+                          $"({string.Join(", ", System.Array.ConvertAll(_movers, m => m.GetType().Name))})");
+            }
         }
 
         void Update()
         {
-            if (_move == null)
+            if (_movers == null || _movers.Length == 0)
             {
-                _move = FindFirstObjectByType<ContinuousMoveProvider>();
-                if (_move == null) return;
+                Acquire();
+                if (_movers == null || _movers.Length == 0) return;
             }
 
-            bool sprint = testForceSprint || ShiftHeld() || StickClicked(XRNode.LeftHand) || StickClicked(XRNode.RightHand);
-            _move.moveSpeed = sprint ? runSpeed : walkSpeed;
+            bool sprint = testForceSprint || ShiftHeld() ||
+                          StickClicked(XRNode.LeftHand) || StickClicked(XRNode.RightHand);
+            float speed = sprint ? runSpeed : walkSpeed;
+            foreach (var m in _movers)
+                if (m != null) m.moveSpeed = speed;
         }
 
         static bool ShiftHeld()
