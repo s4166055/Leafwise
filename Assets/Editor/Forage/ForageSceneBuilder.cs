@@ -63,21 +63,36 @@ namespace Forage.EditorTools
             // 1 m up so the character controller settles onto the ground
             rig.transform.position = new Vector3(0f, ForestGenerator.CampLevel(forest.seed) + 1f, 0f);
 
-            // stand the player at adult eye height (~1.7 m ≈ 5'7") instead of
-            // the device default, which sits low when there is no room-scale floor
+            // Room-scale (Floor / stage space). Device mode is the seated 3DOF
+            // origin: it pins the origin to wherever the head happened to be at
+            // startup, ignores the real floor, and therefore needs a faked
+            // eye-height offset. With Floor the headset reports true head height
+            // and position, so physically stepping, leaning, crouching and
+            // turning all move the view 1:1 — the actual point of playing in VR.
             var origin = rig.GetComponentInChildren<Unity.XR.CoreUtils.XROrigin>();
             if (origin != null)
             {
-                origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Device;
-                origin.CameraYOffset = 1.7f;
+                origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Floor;
+                origin.CameraYOffset = 0f;   // the runtime supplies real height in Floor mode
                 if (origin.CameraFloorOffsetObject != null)
-                    origin.CameraFloorOffsetObject.transform.localPosition = new Vector3(0f, 1.7f, 0f);
+                    origin.CameraFloorOffsetObject.transform.localPosition = Vector3.zero;
             }
+
+            // Confirms at runtime that Floor was actually granted, and falls back
+            // to a seated offset only if the headset refuses it.
+            rig.AddComponent<VrTrackingSetup>();
+
             var characterController = rig.GetComponentInChildren<CharacterController>();
             if (characterController != null)
             {
                 characterController.height = 1.75f;
                 characterController.center = new Vector3(0f, 0.875f, 0f);
+                // The forest is hilly and littered with roots and rocks. The
+                // defaults (45 deg slope, 0.3 m step) snag constantly, which
+                // reads as "movement is slow" even at a high move speed.
+                characterController.slopeLimit = 60f;
+                characterController.stepOffset = 0.6f;
+                characterController.skinWidth = 0.03f;
             }
 
             // --- systems ---
