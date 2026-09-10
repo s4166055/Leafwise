@@ -73,13 +73,20 @@ namespace Forage.EditorTools
             if (origin != null)
             {
                 origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Floor;
-                origin.CameraYOffset = 0f;   // the runtime supplies real height in Floor mode
+
+                // XROrigin applies CameraYOffset ONLY when the runtime is in
+                // Device/Unbounded mode - including a mid-session drop from
+                // Floor when the boundary is lost - and zeroes the floor offset
+                // itself in Floor mode. So this is the seated fallback, not a
+                // fixed height, and it must not be zero or that fallback is gone.
+                // It is also the serialised height for flat play in the editor,
+                // where no XR subsystem exists and XROrigin never moves the offset.
+                origin.CameraYOffset = 1.7f;
                 if (origin.CameraFloorOffsetObject != null)
-                    origin.CameraFloorOffsetObject.transform.localPosition = Vector3.zero;
+                    origin.CameraFloorOffsetObject.transform.localPosition = new Vector3(0f, 1.7f, 0f);
             }
 
-            // Confirms at runtime that Floor was actually granted, and falls back
-            // to a seated offset only if the headset refuses it.
+            // Log-only: reports which origin mode the headset actually granted.
             rig.AddComponent<VrTrackingSetup>();
 
             var characterController = rig.GetComponentInChildren<CharacterController>();
@@ -155,6 +162,7 @@ namespace Forage.EditorTools
 
             // wildlife: NavMesh bake + rabbits, snakes, squirrels
             var animals = systems.AddComponent<AnimalManager>();
+            animals.shaderVariantAnchor = ShaderVariantAnchor();
             animals.squirrelModel = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/FurrySquirrel/Meshes/Squirrel.fbx");
             animals.squirrelController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
@@ -457,6 +465,42 @@ namespace Forage.EditorTools
             }
             sim.Import(UnityEditor.PackageManager.UI.Sample.ImportOptions.OverridePreviousImports);
             AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// A material asset whose only job is to be referenced by the built scene
+        /// with <c>_NORMALMAP</c> enabled.
+        ///
+        /// URP strips shader_feature variants that no material in the build uses
+        /// (UniversalRenderPipelineGlobalSettings.m_StripUnusedVariants). Every
+        /// fur coat and the squirrel's rebuilt material are created at runtime
+        /// with EnableKeyword("_NORMALMAP"), which the build-time variant
+        /// collection cannot see; without this anchor the variant is stripped
+        /// from the APK, the keyword selects a variant that does not exist, and
+        /// the whole animal fix renders flat on device while looking right in
+        /// the editor, where variants compile on demand.
+        /// </summary>
+        static Material ShaderVariantAnchor()
+        {
+            System.IO.Directory.CreateDirectory(MaterialDir);
+            string path = $"{MaterialDir}/RuntimeVariantAnchor.mat";
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            else if (mat.shader != shader)
+            {
+                mat.shader = shader;
+            }
+            // Texture2D.normalTexture is a built-in flat normal map, so the asset
+            // has no dependency of its own.
+            mat.SetTexture("_BumpMap", Texture2D.normalTexture);
+            mat.EnableKeyword("_NORMALMAP");
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         static Transform FindDeep(Transform root, System.Func<Transform, bool> predicate)
