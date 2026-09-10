@@ -502,4 +502,61 @@ The APK build failed four times before succeeding, and none of it was code: a se
 
 ---
 
+## 14. Review pass and test suite
+
+An eight-angle code review of the headset-fix commits (correctness, removed behaviour, cross-file tracing, efficiency, reuse, simplification, altitude, conventions) produced 17 verified findings. Fourteen were fixed; three design-level suggestions were left deliberately (§14.3). The two that mattered most would only have shown up on the headset.
+
+### 14.1 The two findings that would have undone the headset fixes
+
+**`_NORMALMAP` was being stripped from the Android build.** URP removes shader_feature variants that no material in the build uses. Every fur coat and the squirrel's rebuilt material are created *at runtime* with `EnableKeyword("_NORMALMAP")`, which the build-time variant collection cannot see — so the variant was stripped from the APK, the keyword selected a variant that did not exist, and every animal would have rendered flat on device while looking correct in the editor (where variants compile on demand). Fixed by `RuntimeVariantAnchor.mat`, a material asset with the keyword enabled, referenced from `AnimalManager.shaderVariantAnchor` in the built scene so the variant survives.
+
+**`VrTrackingSetup` re-implemented `XROrigin`, and worse.** XROrigin already requests Floor, retries while the runtime reports `Unknown`, applies `CameraYOffset` only in Device/Unbounded mode, zeroes the floor offset in Floor mode, and re-applies all of that on a mid-session origin change. My component zeroed `CameraYOffset` on Floor — throwing away the fallback for a later drop to Device (guardian lost, stationary mode), which would have put the player's eyes on the grass with no recovery — and decided from a one-frame poll, misclassifying a healthy headset while the reference-space change was still pending. The rig now carries `Floor + CameraYOffset 1.7` (a seated fallback, ignored in Floor mode) and `VrTrackingSetup` is **log-only**.
+
+### 14.2 Other fixes from the review
+
+| Finding | Fix |
+|---|---|
+| Live DevAgent access token committed to the public repo, in a `Resources/` asset that ships inside the APK | Untracked and gitignored. **The token must still be rotated** — the old one is in git history |
+| `EditorApplication.Step()` leaves the editor paused after every self-test; settle was wall-clock | Unpaused before exit; settle on `Time.timeSinceLevelLoad` |
+| `runSpeed = 30` equals `GameManager`'s teleport-rejection threshold, dropping the samples that tell wildlife you are running | Run speed 26 m/s |
+| Snake skin baked per snake and leaked on every zone respawn (~350 KB each) | One cached skin per species |
+| Ten 256 px fur bakes on the main thread in one startup frame (~2.6 M Perlin calls) | 128 px, `Color32`, CPU copy released after upload |
+| Deer eyes still matte via a duplicate `Blob`; dead `Shader.Find` in Deer/Fox | Shared glossy `AnimalFactory.Eye` |
+| Subdivision 2 applied to 1.4 cm eyes and feet | Subdivision is a parameter; 2 only for body masses |
+| Two caching layers for the same materials | One keyed cache, cleared on subsystem registration |
+| Snake proximity assertion compared against requested zones, not the ones that exist | `AnimalManager.ActiveSnakeZoneCount` |
+| Scout orb assertion tautological while Scout talks | Timer-only `IsSpeaking`, `Silence()`, and a behavioural PlayMode test |
+| Eye-height assertion skipped exactly where deterministic | Inverted: asserted in flat mode, reported with a headset |
+| Habitat asserted by re-deriving zone from position, failing legitimate fallbacks | Spawner records `Animal.PlacementSatisfied` |
+| Sprint never re-acquired a destroyed move provider | Re-acquires on any null entry |
+
+### 14.3 Left as design decisions
+
+- **`SpawnGuard`'s head clamp duplicates XRI's body-follow collision.** Retuning to 0.25 m removed the crouch fight; the reviewer is right that the deeper fix is to drop the clamp and let `XRBodyTransformer`/`GravityProvider` own it. Kept for now because it also catches genuine fall-through.
+- **Step offset 0.6 m makes most debris climbable; 16/26 m/s is fast for VR comfort.** Both are what the tester asked for. The cleaner alternative — put sub-knee debris on a layer the controller ignores — is noted for a comfort pass with the headset.
+- **`FurMaterial` duplicates `ProceduralTextures` helpers.** A refactor, not a bug.
+
+### 14.4 Test suite
+
+The project now has a Unity Test Framework suite in its own assemblies (`Forage.Tests.EditMode`, `Forage.Tests.PlayMode`), which required moving the game code into `Forage.asmdef` / `Forage.Editor.asmdef` — test assemblies cannot reference the default `Assembly-CSharp`.
+
+| Suite | Tests | What it covers | Result |
+|---|---|---|---|
+| EditMode | 9 | Terrain maths, fur/eye materials, build validation (12 checks), scene serialisation (Floor origin, fallback offset, slope/step, simulator editor-only) | **9 / 9** |
+| PlayMode | 5 | Loads the real scene, settles 6 s of *game* time, then: all 64 world invariants, room-scale origin, sprint speeds on every provider, Scout hides after `Silence()`, no animal buried or floating | **5 / 5** |
+
+The 64 world invariants live once, in `Forage.Testing.WorldInvariants`, shared by the PlayMode test and the editor self-test (`Forage ▸ Test ▸ Run Forest Self-Test`) so there is a single definition of "the world is healthy".
+
+**Running them:** `Forage ▸ Test ▸ Run EditMode Tests / Run PlayMode Tests` writes `Temp/test-results-<Mode>.txt`. Headless (CI):
+
+```powershell
+& $unity -batchmode -projectPath E:\unity\Leafwise -buildTarget Android `
+  -runTests -testPlatform PlayMode -assemblyNames Forage.Tests.PlayMode `
+  -testResults E:\unity\Leafwise\Temp\playmode-results.xml -logFile E:\unity\Leafwise\Logs\playmode.log
+```
+
+Exit code 0 = all passed. Prefer batch mode on this machine: during an in-editor PlayMode run the security product locked `OpenXRPackageSettings.asset` mid-reserialisation, Unity raised a modal *"Moving file failed"*, and the run stalled until dismissed. Batch mode cannot show dialogs.
+
+---
+
 *Generated as part of the checkpoint-driven build. The scene can always be rebuilt from scratch via **Forage ▸ Build Forage Scene** — code is the single source of truth.*
