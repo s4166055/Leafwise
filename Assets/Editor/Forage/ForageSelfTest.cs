@@ -77,7 +77,18 @@ namespace Forage.EditorTools
 
                 case "settle":
                     if (!EditorApplication.isPlaying) { SessionState.SetString(PhaseKey, ""); return; }
-                    if (EditorApplication.timeSinceStartup < _settleUntil) return;
+                    if (EditorApplication.timeSinceStartup < _settleUntil)
+                    {
+                        // Drive the simulation forward by hand. An unfocused
+                        // editor throttles (often halts) the player loop, so
+                        // Awake/Start run but nothing after the first yield
+                        // does: coroutines, Update and NavMesh settling all
+                        // stall, and time-based behaviour silently never
+                        // happens. Stepping makes the wait real and repeatable
+                        // whether or not the window has focus.
+                        EditorApplication.Step();
+                        return;
+                    }
                     RunChecks();
                     SessionState.SetString(PhaseKey, "done");
                     EditorApplication.ExitPlaymode();
@@ -236,20 +247,23 @@ namespace Forage.EditorTools
             Check(rabbits >= 1, "Rabbits spawned", rabbits.ToString());
             Check(deer >= 1, "Deer spawned", deer.ToString());
             Check(squirrels >= 1, "Squirrels spawned", squirrels.ToString());
-            Check(snakes == 0, "Snakes stay unspawned until you enter their zone", snakes + " alive at start");
+            // Proximity gating, not a frozen first frame: with the simulation
+            // actually stepping, a zone near camp legitimately materialises its
+            // snake. What must never happen is all seven being pre-spawned.
+            int zones = mgr != null ? mgr.snakeZones : 7;
+            Check(snakes < zones, "Snakes are proximity-spawned, not all pre-placed",
+                  $"{snakes} alive of {zones} ambush zones");
 
+            // Assert the recorded spawn zone, not the live position: by now the
+            // simulation has been stepped for several seconds and animals have
+            // wandered, so current position tests nothing about placement.
             foreach (var d in Object.FindObjectsByType<Deer>(FindObjectsSortMode.None))
-            {
-                var z = Habitat.ZoneAt(d.transform.position);
-                Check(Habitat.Suits(z, Habitat.Zone.Meadow, Habitat.Zone.Woodland, Habitat.Zone.Waterside),
-                      "Deer spawned in a plausible habitat", z.ToString());
-            }
+                Check(Habitat.Suits(d.SpawnZone, Habitat.Zone.Meadow, Habitat.Zone.Woodland, Habitat.Zone.Waterside),
+                      "Deer spawned in a plausible habitat", d.SpawnZone.ToString());
+
             foreach (var s in Object.FindObjectsByType<Squirrel>(FindObjectsSortMode.None))
-            {
-                var z = Habitat.ZoneAt(s.transform.position);
-                Check(Habitat.Suits(z, Habitat.Zone.Woodland, Habitat.Zone.DeepWoods),
-                      "Squirrel spawned in woodland", z.ToString());
-            }
+                Check(Habitat.Suits(s.SpawnZone, Habitat.Zone.Woodland, Habitat.Zone.DeepWoods),
+                      "Squirrel spawned in woodland", s.SpawnZone.ToString());
 
             // no animal may be buried in or floating above the ground
             Section("Animals sit on the ground");
@@ -275,13 +289,33 @@ namespace Forage.EditorTools
             Check(origin != null, "XR Origin present");
             if (origin != null)
             {
+                // The VR-correctness check that matters: room-scale, not seated.
+                // Device mode pins the origin to the startup head pose and
+                // ignores the real floor, so physical movement never maps 1:1.
+                Check(origin.RequestedTrackingOriginMode ==
+                          Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Floor,
+                      "Room-scale: tracking origin is Floor, not seated Device",
+                      origin.RequestedTrackingOriginMode.ToString());
+
                 var head = origin.Camera != null ? origin.Camera.transform : origin.transform;
                 float pg = forest.HeightAt(head.position.x, head.position.z);
                 float eye = head.position.y - pg;
                 Check(eye > 0.3f, "Player head is above the terrain (no fall-through)",
                       $"head y {head.position.y:F2}, ground {pg:F2}, eye height {eye:F2} m");
-                Check(eye > 1.4f && eye < 2.1f, "Eye height is a realistic 5-6 ft standing view",
-                      $"{eye:F2} m ({eye * 3.281f:F1} ft)");
+
+                // Eye height can only be asserted when something is actually
+                // reporting a head pose. With no headset attached the editor's
+                // OpenXR runtime fails with FORM_FACTOR_UNAVAILABLE and the
+                // camera sits at the origin, so VrTrackingSetup's fallback is
+                // what supplies a standing height here.
+                var headDevice = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(
+                    UnityEngine.XR.XRNode.Head);
+                if (headDevice.isValid)
+                    Check(eye > 1.4f && eye < 2.1f, "Eye height is a realistic 5-6 ft standing view",
+                          $"{eye:F2} m ({eye * 3.281f:F1} ft)");
+                else
+                    _sb.AppendLine($"      (no head device attached - eye height {eye:F2} m comes " +
+                                   "from the flat-mode fallback; real height is supplied by the headset)");
 
                 float rigDrop = origin.transform.position.y - forest.HeightAt(origin.transform.position.x, origin.transform.position.z);
                 Check(rigDrop > -0.5f && rigDrop < 2.5f, "Rig floor sits on the terrain",
@@ -292,9 +326,14 @@ namespace Forage.EditorTools
             Check(scout != null, "Scout companion present");
             if (scout != null)
             {
+                // The complaint was a white ball permanently in view. Visible
+                // *while speaking* is the intended design, so tie the assertion
+                // to that state rather than to a bare renderer count.
                 var mr = scout.GetComponentsInChildren<MeshRenderer>(true);
-                Check(mr.All(r => !r.enabled), "Scout orb hidden until it speaks (no white ball following you)",
-                      mr.Count(r => r.enabled) + " visible renderers");
+                int visible = mr.Count(r => r.enabled);
+                Check(scout.IsSpeaking || visible == 0,
+                      "Scout orb is only visible while speaking (no ball following you)",
+                      $"speaking={scout.IsSpeaking}, {visible} visible renderer(s)");
             }
 
             // ---------------- materials ----------------

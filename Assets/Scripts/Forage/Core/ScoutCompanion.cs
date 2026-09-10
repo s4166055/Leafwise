@@ -129,6 +129,14 @@ namespace Forage
             Say(lines[count >= 2 ? 1 : 0]); // escalate to direct wording on repeats
         }
 
+        /// <summary>
+        /// True while a speech bubble is on screen or still fading. The orb is
+        /// only allowed to be visible during this window — the rest of the time
+        /// Scout is invisible, so it never becomes a ball following the player.
+        /// </summary>
+        public bool IsSpeaking => _bubbleTimer > 0f ||
+                                  (_bubbleGroup != null && _bubbleGroup.alpha > 0.02f);
+
         public void Say(string text)
         {
             if (_bubbleText == null) return;

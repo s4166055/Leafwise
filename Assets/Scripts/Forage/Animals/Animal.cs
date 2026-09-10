@@ -33,9 +33,18 @@ namespace Forage
 
         protected float PlayerSpeed => GameManager.Instance != null ? GameManager.Instance.PlayerSpeed : 0f;
 
+        /// <summary>
+        /// The habitat zone this animal was placed in. Recorded because animals
+        /// wander: once the simulation has run for a few seconds a squirrel may
+        /// legitimately be standing at the pond, so its current position says
+        /// nothing about whether habitat-based placement worked. This does.
+        /// </summary>
+        public Habitat.Zone SpawnZone { get; private set; }
+
         protected virtual void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
+            SpawnZone = Habitat.ZoneAt(transform.position);
         }
 
         protected void SetBody(Transform visualRoot) => body = visualRoot;
