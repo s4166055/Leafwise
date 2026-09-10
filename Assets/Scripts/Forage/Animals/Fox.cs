@@ -33,9 +33,14 @@ namespace Forage
         void BuildBody()
         {
             var lit = Shader.Find("Universal Render Pipeline/Lit");
-            var rust = new Material(lit); rust.SetColor("_BaseColor", new Color(0.72f, 0.36f, 0.16f));
-            var cream = new Material(lit); cream.SetColor("_BaseColor", new Color(0.9f, 0.85f, 0.75f));
-            var dark = new Material(lit); dark.SetColor("_BaseColor", new Color(0.2f, 0.15f, 0.1f));
+            // Fox fur is medium-length and slightly glossy, and the brush tail
+            // reads best with looser, coarser strands than the body.
+            var rust = AnimalFactory.FurMaterial("fox-rust",
+                new Color(0.76f, 0.38f, 0.16f), new Color(0.46f, 0.2f, 0.08f), 41, 46f, 0.24f);
+            var cream = AnimalFactory.FurMaterial("fox-cream",
+                new Color(0.92f, 0.88f, 0.79f), new Color(0.68f, 0.63f, 0.55f), 42, 40f, 0.22f);
+            var dark = AnimalFactory.FurMaterial("fox-dark",
+                new Color(0.21f, 0.16f, 0.11f), new Color(0.09f, 0.07f, 0.05f), 43, 46f);
 
             var root = new GameObject("Body").transform;
             root.SetParent(transform, false);
@@ -44,13 +49,13 @@ namespace Forage
             var torso = new GameObject("Torso");
             torso.transform.SetParent(root, false);
             torso.transform.localPosition = new Vector3(0, 0.28f, 0);
-            torso.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.17f, 1, 0.05f, GetInstanceID(), new Vector3(0.75f, 0.75f, 1.6f));
+            torso.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.17f, 2, 0.05f, GetInstanceID(), new Vector3(0.75f, 0.75f, 1.6f));
             torso.AddComponent<MeshRenderer>().sharedMaterial = rust;
 
             var head = new GameObject("Head");
             head.transform.SetParent(root, false);
             head.transform.localPosition = new Vector3(0, 0.4f, 0.28f);
-            head.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.1f, 1, 0.05f, GetInstanceID() + 1, new Vector3(0.85f, 0.8f, 1.1f));
+            head.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.1f, 2, 0.05f, GetInstanceID() + 1, new Vector3(0.85f, 0.8f, 1.1f));
             head.AddComponent<MeshRenderer>().sharedMaterial = rust;
 
             var snout = new GameObject("Snout");
@@ -78,7 +83,7 @@ namespace Forage
             _tail.localRotation = Quaternion.Euler(-35f, 0, 0);
             var tailMesh = new GameObject("TailMesh");
             tailMesh.transform.SetParent(_tail, false);
-            tailMesh.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.09f, 1, 0.08f, GetInstanceID() + 2, new Vector3(0.7f, 0.7f, 2.2f));
+            tailMesh.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.09f, 2, 0.08f, GetInstanceID() + 2, new Vector3(0.7f, 0.7f, 2.2f));
             tailMesh.AddComponent<MeshRenderer>().sharedMaterial = rust;
             var tip = new GameObject("Tip");
             tip.transform.SetParent(_tail, false);

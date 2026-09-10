@@ -46,14 +46,20 @@ namespace Forage
         void BuildBody()
         {
             var lit = Shader.Find("Universal Render Pipeline/Lit");
-            var hide = new Material(lit); hide.SetColor("_BaseColor", new Color(0.55f, 0.42f, 0.28f));
-            var dark = new Material(lit); dark.SetColor("_BaseColor", new Color(0.35f, 0.26f, 0.17f));
+            // Textured coats with normal-mapped hair, rather than flat colour.
+            // Deer hair is short and lies flat, so the strands are dense and
+            // the relief is subtle compared with the bear.
+            var hide = AnimalFactory.FurMaterial("deer-hide",
+                new Color(0.58f, 0.44f, 0.29f), new Color(0.36f, 0.26f, 0.17f), 21, 68f);
+            var dark = AnimalFactory.FurMaterial("deer-dark",
+                new Color(0.36f, 0.27f, 0.18f), new Color(0.2f, 0.15f, 0.1f), 22, 68f);
 
             var root = new GameObject("Body").transform;
             root.SetParent(transform, false);
             SetBody(root);
 
-            var pale = new Material(lit); pale.SetColor("_BaseColor", new Color(0.82f, 0.76f, 0.66f));
+            var pale = AnimalFactory.FurMaterial("deer-pale",
+                new Color(0.85f, 0.79f, 0.69f), new Color(0.62f, 0.57f, 0.49f), 23, 68f);
 
             // deep chest tapering to a narrower rump, with a visible shoulder
             var torso = new GameObject("Torso");

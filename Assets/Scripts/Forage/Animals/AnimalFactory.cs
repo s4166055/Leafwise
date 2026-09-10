@@ -10,14 +10,116 @@ namespace Forage
         static Material _snakeSkin;
         static Material _eye;
 
+        static readonly System.Collections.Generic.Dictionary<string, Material> _furCache =
+            new System.Collections.Generic.Dictionary<string, Material>();
+
         static void EnsureMats()
         {
             if (_fur != null) return;
-            var lit = Shader.Find("Universal Render Pipeline/Lit");
-            _fur = new Material(lit); _fur.SetColor("_BaseColor", new Color(0.5f, 0.4f, 0.3f));
-            _furLight = new Material(lit); _furLight.SetColor("_BaseColor", new Color(0.75f, 0.68f, 0.58f));
-            _snakeSkin = new Material(lit); _snakeSkin.SetColor("_BaseColor", new Color(0.35f, 0.42f, 0.2f));
-            _eye = new Material(lit); _eye.SetColor("_BaseColor", new Color(0.08f, 0.06f, 0.05f));
+            _fur = FurMaterial("fur-mid", new Color(0.5f, 0.4f, 0.3f), new Color(0.3f, 0.23f, 0.16f), 11);
+            _furLight = FurMaterial("fur-light", new Color(0.8f, 0.74f, 0.64f), new Color(0.56f, 0.5f, 0.42f), 12);
+            _snakeSkin = SnakeSkin(new Color(0.35f, 0.42f, 0.2f), new Color(0.2f, 0.25f, 0.12f), 13);
+            _eye = EyeMaterial(new Color(0.05f, 0.04f, 0.035f));
+        }
+
+        /// <summary>
+        /// A wet, glossy eye. Flat matte spheres are one of the biggest reasons
+        /// a procedural animal reads as a toy, so eyes get a real specular
+        /// highlight instead of the default plastic response.
+        /// </summary>
+        public static Material EyeMaterial(Color col)
+        {
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.SetColor("_BaseColor", col);
+            mat.SetFloat("_Smoothness", 0.95f);
+            return mat;
+        }
+
+        /// <summary>
+        /// Procedural fur: an albedo of directional strands over a darker
+        /// undercoat, plus a matching normal map derived from the same strand
+        /// height field.
+        ///
+        /// The normal map is the part that matters. Every mammal here used to be
+        /// a flat <c>_BaseColor</c> on a smooth blob, which is exactly why they
+        /// read as plasticine beside the textured squirrel: one evenly lit
+        /// surface with no high-frequency detail gives the eye nothing to
+        /// resolve. Real per-pixel relief makes the same silhouette look like an
+        /// animal, and costs only one extra texture fetch on device.
+        ///
+        /// Strands are stretched along V because SmoothBlob lays out spherical
+        /// UVs (U wraps around the body, V runs pole to pole), so the fur lies
+        /// along the animal instead of swirling around it.
+        /// </summary>
+        public static Material FurMaterial(string key, Color baseCol, Color underCol, int seed,
+                                           float strandDensity = 52f, float smoothness = 0.18f)
+        {
+            if (_furCache.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            const int size = 256;
+            float ox = seed * 7.31f % 500f;
+
+            // shared height field: fine strands across U, stretched along V
+            var height = new float[size, size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float u = (float)x / size, v = (float)y / size;
+                    // Weighted toward the finer octaves: a heavy low-frequency
+                    // clump term made the coat look lumpy, like wet clay, rather
+                    // than like hair. Fine detail carries the fur read; the
+                    // clump only breaks up uniformity.
+                    float strand = Mathf.PerlinNoise(u * strandDensity + ox, v * strandDensity * 0.15f + ox);
+                    float fine = Mathf.PerlinNoise(u * strandDensity * 3.2f + ox * 2f, v * strandDensity * 0.5f);
+                    float finer = Mathf.PerlinNoise(u * strandDensity * 6.5f + ox * 4f, v * strandDensity * 0.9f);
+                    float clump = Mathf.PerlinNoise(u * 5f + ox * 3f, v * 4f + ox);
+                    height[x, y] = Mathf.Clamp01(strand * 0.44f + fine * 0.30f +
+                                                 finer * 0.14f + clump * 0.16f);
+                }
+
+            var albedo = new Texture2D(size, size, TextureFormat.RGB24, true) { wrapMode = TextureWrapMode.Repeat };
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float h = height[x, y];
+                    // tips catch the light, roots stay in the undercoat
+                    var c = Color.Lerp(underCol, baseCol, Mathf.SmoothStep(0.15f, 0.85f, h));
+                    c *= 0.9f + h * 0.22f;
+                    px[y * size + x] = c;
+                }
+            albedo.SetPixels(px);
+            albedo.Apply(true);
+
+            // normal map from the same field (sobel), linear so it is not gamma-corrected
+            var normal = new Texture2D(size, size, TextureFormat.RGBA32, true, true)
+            { wrapMode = TextureWrapMode.Repeat };
+            var npx = new Color[size * size];
+            const float relief = 3.2f;
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    int xm = (x - 1 + size) % size, xp = (x + 1) % size;
+                    int ym = (y - 1 + size) % size, yp = (y + 1) % size;
+                    float dx = (height[xp, y] - height[xm, y]) * relief;
+                    float dy = (height[x, yp] - height[x, ym]) * relief;
+                    var n = new Vector3(-dx, -dy, 1f).normalized;
+                    npx[y * size + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
+                }
+            normal.SetPixels(npx);
+            normal.Apply(true);
+
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.SetTexture("_BaseMap", albedo);
+            mat.SetColor("_BaseColor", Color.white);
+            mat.SetTexture("_BumpMap", normal);
+            mat.SetFloat("_BumpScale", 1.0f);
+            mat.EnableKeyword("_NORMALMAP");
+            mat.SetFloat("_Smoothness", smoothness);   // fur is matte, not plastic
+            mat.SetFloat("_Metallic", 0f);
+
+            _furCache[key] = mat;
+            return mat;
         }
 
         static GameObject Blob(Transform parent, string name, float r, Vector3 squash, Material mat, Vector3 pos, int seed)
@@ -25,7 +127,7 @@ namespace Forage
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = pos;
-            go.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(r, 1, 0.06f, seed, squash);
+            go.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(r, 2, 0.06f, seed, squash);
             go.AddComponent<MeshRenderer>().sharedMaterial = mat;
             return go;
         }
