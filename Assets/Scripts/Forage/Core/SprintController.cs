@@ -18,7 +18,10 @@ namespace Forage
         // every bank and root, so actual travel was a fraction of the setting.
         // Those are widened in ForageSceneBuilder; these are the honest speeds.
         public float walkSpeed = 16.0f;
-        public float runSpeed = 30.0f;
+        // Kept under 30: GameManager rejects head-speed samples >= 30 m/s as
+        // teleport jumps, so a sprint of exactly 30 would drop the very samples
+        // that tell wildlife you are running.
+        public float runSpeed = 26.0f;
 
         [Header("Debug/testing")]
         public bool testForceSprint;
@@ -27,8 +30,8 @@ namespace Forage
         // DynamicMoveProvider derives from ContinuousMoveProvider, and a rig can
         // carry more than one; setting only one leaves the other at its prefab
         // default and the pace depends on which happens to drive you.
-        ContinuousMoveProvider[] _movers;
-        bool _logged;
+        ContinuousMoveProvider[] _movers = System.Array.Empty<ContinuousMoveProvider>();
+        float _lastApplied = -1f;
         static readonly List<InputDevice> _devices = new List<InputDevice>();
 
         void Start() => Acquire();
@@ -37,30 +40,36 @@ namespace Forage
         {
             _movers = FindObjectsByType<ContinuousMoveProvider>(FindObjectsSortMode.None);
             if (_movers.Length == 0) return;
-            foreach (var m in _movers) m.moveSpeed = walkSpeed;
+            _lastApplied = -1f;   // force a write on the next Update
+            Debug.Log($"[Forage] Sprint: {_movers.Length} move provider(s) set to " +
+                      $"walk {walkSpeed} / run {runSpeed} m/s " +
+                      $"({string.Join(", ", System.Array.ConvertAll(_movers, m => m.GetType().Name))})");
+        }
 
-            if (!_logged)
-            {
-                _logged = true;
-                Debug.Log($"[Forage] Sprint: {_movers.Length} move provider(s) set to " +
-                          $"walk {walkSpeed} / run {runSpeed} m/s " +
-                          $"({string.Join(", ", System.Array.ConvertAll(_movers, m => m.GetType().Name))})");
-            }
+        // A destroyed provider compares equal to null; if the rig is rebuilt at
+        // runtime we must find the replacement rather than skip it forever.
+        bool NeedsAcquire()
+        {
+            if (_movers.Length == 0) return true;
+            foreach (var m in _movers) if (m == null) return true;
+            return false;
         }
 
         void Update()
         {
-            if (_movers == null || _movers.Length == 0)
+            if (NeedsAcquire())
             {
                 Acquire();
-                if (_movers == null || _movers.Length == 0) return;
+                if (_movers.Length == 0) return;
             }
 
             bool sprint = testForceSprint || ShiftHeld() ||
                           StickClicked(XRNode.LeftHand) || StickClicked(XRNode.RightHand);
             float speed = sprint ? runSpeed : walkSpeed;
-            foreach (var m in _movers)
-                if (m != null) m.moveSpeed = speed;
+            if (Mathf.Approximately(speed, _lastApplied)) return;   // sprint state changes rarely
+
+            _lastApplied = speed;
+            foreach (var m in _movers) m.moveSpeed = speed;
         }
 
         static bool ShiftHeld()
