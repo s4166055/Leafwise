@@ -110,3 +110,6 @@ InitTestScene*.unity*
 /My project (1)/
 # Meta XR SDK build-time generated config
 /Assets/Resources/OVRBuildConfig.asset*
+# Meta Immersive Debugger dev-agent config: carries a live access token and LAN address.
+# Never commit; each machine keeps its own local copy.
+/Assets/Resources/DevAgentSettings.asset*
