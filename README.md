@@ -10,10 +10,15 @@
 - Dangerous Snake 
 
 ## Project Setup (TBC)
-- Unity 6.5 (6000.5.5f1)
-- target XR device;
-- SDK and package names and versions;
-- required modules and build platform;
-- installation and project-opening steps;
-- how to build, deploy, and run on the device;
-- known issues and troubleshooting notes.
+- Unity Version: 6000.3.21f1
+- Target XR device: Meta Quest 3
+- SDK and package names:
+  - Android SDK​
+  - Meta XR All-in-One SDK​
+- AI Packages:
+  - Unity-MCP by Ivan Murzuk​
+- Required modules and build platform;
+- Installation and project-opening steps:
+  1. Clone the Leafwise repository into Unity
+- How to build, deploy, and run on the device;
+- Known issues and troubleshooting notes.
