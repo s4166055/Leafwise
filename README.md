@@ -80,3 +80,10 @@ The project is in its **prototyping / sandbox phase**. Core systems exist but ar
 | **Mushroom Foraging** | Safe/dangerous mushrooms generate with a colour indicator (green = safe, red = poisonous) and can be picked up, but not eaten yet |
 | **Animals** | Rabbit, snake, squirrel, deer, and fox assets are implemented and spawnable via the sandbox "Animal Tester" panel — but they all currently share the same generic behaviour (approach the player, then flee) rather than species-specific logic |
 | **AI Helper ("Scout")** | Basic implementation — responds when animals retreat from or attack the player |
+
+### Known Issues
+- Project is currently in a buggy state
+- Species-specific animal behaviour (e.g. different reactions per animal, snake bite/venom, rabbit gift mechanic) not yet implemented — all animals currently run the same approach/flee pattern
+- Animal testing is done via a temporary sandbox panel, intended to be removed for the final prototype
+- Meta Quest 3 headset tracking is not working; controller input works as a fallback
+- Deployment requires manually pointing to the correct project directory rather than the test one
