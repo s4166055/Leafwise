@@ -161,6 +161,16 @@ namespace Forage.Tests
             var so = new SerializedObject(settings);
             Assert.That(so.FindProperty("m_AutomaticallyInstantiateInEditorOnly").boolValue, Is.True,
                 "the simulator must be editor-only");
+
+            // XRI's loader spawns the simulator on every editor Play with this on,
+            // even with a real Quest connected over Link - and the camera then
+            // follows the simulated HMD instead of the player's head. That was
+            // the first headset test. SimulatorGuard spawns it only when no
+            // headset is active, so the package flag must stay off.
+            Assert.That(so.FindProperty("m_AutomaticallyInstantiateSimulatorPrefab").boolValue, Is.False,
+                "XRI must not auto-spawn the simulator; SimulatorGuard decides at runtime");
+            Assert.That(so.FindProperty("m_SimulatorPrefab").objectReferenceValue, Is.Not.Null,
+                "the simulator prefab must stay assigned so SimulatorGuard can spawn it for desk testing");
         }
     }
 }

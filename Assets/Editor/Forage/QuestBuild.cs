@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -5,7 +6,6 @@ using UnityEditor.Build;
 using UnityEditor.XR.Management;
 using UnityEditor.XR.Management.Metadata;
 using UnityEngine;
-using UnityEngine.XR.Management;
 using UnityEngine.XR.OpenXR;
 using UnityEngine.XR.OpenXR.Features;
 
@@ -71,38 +71,56 @@ namespace Forage.EditorTools
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
-            EnableOpenXrForAndroid();
+            EnableOpenXr(BuildTargetGroup.Android);     // the shipped Quest build
+            EnableOpenXr(BuildTargetGroup.Standalone);  // so editor Play uses a headset over Link
 
             AssetDatabase.SaveAssets();
             Debug.Log("[Forage] Quest configuration applied: ARM64, IL2CPP, Vulkan, " +
                       "multi-view, minSdk 32, OpenXR + Meta Quest.");
         }
 
-        /// <summary>Turn on the OpenXR loader and the Meta Quest features for Android.</summary>
-        static void EnableOpenXrForAndroid()
+        /// <summary>
+        /// Turn on the OpenXR loader and the Meta Quest features for a build target.
+        ///
+        /// Android is the shipped build. Standalone matters just as much in
+        /// practice: it is what the editor's Play button uses, so without it a
+        /// Quest connected over Link is invisible to Play mode and you end up
+        /// testing the simulator while believing you are testing the headset.
+        /// Configuring both here keeps that in a reviewable diff instead of
+        /// depending on whoever last opened the XR Plug-in Management window.
+        /// </summary>
+        static void EnableOpenXr(BuildTargetGroup group)
         {
-            var settings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(BuildTargetGroup.Android);
+            // Direct, compile-checked calls on purpose. An earlier version looked
+            // these types up with Type.GetType(); that returned null in batch mode
+            // and the whole XR setup silently did nothing, which is how the Android
+            // OpenXR loader went missing while every log line still said success.
+            // Forage.Editor.asmdef references Unity.XR.Management(.Editor), so a
+            // missing package is now a build error rather than a silent skip.
+            var settings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(group);
             if (settings == null)
             {
-                Debug.LogError("[Forage] No XR settings for Android. Open Project Settings > XR Plug-in Management once, then re-run.");
+                Debug.LogError($"[Forage] No XR settings for {group}. Open Project Settings > " +
+                               "XR Plug-in Management once, then re-run.");
                 return;
             }
 
             settings.InitManagerOnStart = true;
+
             var manager = settings.AssignedSettings;
             if (manager == null)
             {
-                Debug.LogError("[Forage] XR manager settings missing for Android.");
+                Debug.LogError($"[Forage] XR manager settings missing for {group}.");
                 return;
             }
 
-            bool assigned = XRPackageMetadataStore.AssignLoader(manager, typeof(OpenXRLoader).FullName, BuildTargetGroup.Android);
-            Debug.Log("[Forage] OpenXR loader assigned for Android: " + assigned);
+            bool assigned = XRPackageMetadataStore.AssignLoader(manager, typeof(OpenXRLoader).FullName, group);
+            Debug.Log($"[Forage] OpenXR loader assigned for {group}: {assigned}");
 
-            var openXr = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
+            var openXr = OpenXRSettings.GetSettingsForBuildTargetGroup(group);
             if (openXr == null)
             {
-                Debug.LogWarning("[Forage] OpenXR settings asset not found for Android.");
+                Debug.LogWarning($"[Forage] OpenXR settings asset not found for {group}.");
                 return;
             }
 
@@ -161,9 +179,9 @@ namespace Forage.EditorTools
             Check(apis.Length > 0 && apis[0] == UnityEngine.Rendering.GraphicsDeviceType.Vulkan,
                   "Vulkan is the primary graphics API", "Run step 1");
 
-            var settings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(BuildTargetGroup.Android);
-            bool loaderOk = settings != null && settings.AssignedSettings != null &&
-                            settings.AssignedSettings.activeLoaders.Any(l => l is OpenXRLoader);
+            var xrSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(BuildTargetGroup.Android);
+            bool loaderOk = xrSettings != null && xrSettings.AssignedSettings != null &&
+                            xrSettings.AssignedSettings.activeLoaders.Any(l => l is OpenXRLoader);
             Check(loaderOk, "OpenXR loader active for Android", "Run step 1");
 
             var openXr = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
