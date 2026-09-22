@@ -157,7 +157,7 @@ namespace Forage.EditorTools
             // sensory layer: audio ambience, feedback vignette, haptic hooks
             systems.AddComponent<AmbienceAndFeedback>();
             systems.AddComponent<SprintController>();
-            systems.AddComponent<SimulatorUiFix>();
+            systems.AddComponent<SimulatorGuard>();   // spawns the simulator only when no real headset is present
             new GameObject("ScreenFeedback").AddComponent<ScreenFeedback>();
 
             // wildlife: NavMesh bake + rabbits, snakes, squirrels
@@ -436,7 +436,11 @@ namespace Forage.EditorTools
                     prefab != null && prefab.name.Contains("Device");
             }
 
-            so.FindProperty("m_AutomaticallyInstantiateSimulatorPrefab").boolValue = true;
+            // Off on purpose: XRI would spawn the simulator on every editor Play, even
+            // with a real Quest connected over Link, and the camera then follows the
+            // simulated HMD instead of the player's head. SimulatorGuard spawns it at
+            // runtime only when no headset is active.
+            so.FindProperty("m_AutomaticallyInstantiateSimulatorPrefab").boolValue = false;
             so.FindProperty("m_AutomaticallyInstantiateInEditorOnly").boolValue = true;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(settings);
