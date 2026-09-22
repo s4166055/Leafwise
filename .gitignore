@@ -119,3 +119,8 @@ InitTestScene*.unity*
 /Assets/Resources/PerformanceTestRunSettings.json*
 # Written by the Input System at runtime (rebind persistence); never authored
 /Assets/StreamingAssets/RuntimeActionBindings.json*
+
+# Unity crash-recovery scene copies (created when the editor is force-quit)
+/Assets/_Recovery/
+# Test-runner output written to the project root
+/TestResults-*.xml
