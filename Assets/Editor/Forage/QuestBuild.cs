@@ -127,22 +127,87 @@ namespace Forage.EditorTools
             openXr.renderMode = OpenXRSettings.RenderMode.SinglePassInstanced;
 
             // Without an interaction profile the controllers report no input on device.
-            EnableFeature(openXr, "MetaQuestTouchPlusControllerProfile");
-            EnableFeature(openXr, "MetaQuestTouchProControllerProfile");
-            EnableFeature(openXr, "OculusTouchControllerProfile");
-            EnableFeature(openXr, "MetaQuestFeature");
+            ApplyFeatures(openXr);
             EditorUtility.SetDirty(openXr);
         }
 
-        static void EnableFeature(OpenXRSettings settings, string nameFragment)
+        /// <summary>The interaction profiles the Quest actually needs.</summary>
+        static readonly string[] WantedFeatures =
+        {
+            "MetaQuestTouchPlusControllerProfile",   // Quest 3 / 3S controllers
+            "MetaQuestTouchProControllerProfile",    // Quest Pro controllers
+            "OculusTouchControllerProfile",          // Quest 2 and older
+            "MetaQuestFeature",
+        };
+
+        /// <summary>
+        /// Profiles that must stay off. Meta's detached-controller profiles
+        /// (XR_META_detached_controllers) suggest binding paths this runtime
+        /// rejects, e.g. /user/detached_controller_meta/left/input/thumbrest/force.
+        /// xrSuggestInteractionProfileBindings then fails with
+        /// XR_ERROR_PATH_UNSUPPORTED - and because that call registers the whole
+        /// combined binding set atomically, ONE bad path discards every controller
+        /// binding. The controllers still track, but nothing is bound to grab,
+        /// trigger or anything else, so the game looks like it ignores your hands.
+        /// </summary>
+        /// <summary>
+        /// Features that must stay off, each with the reason it is off, because
+        /// they are off for two quite different reasons and a future reader
+        /// should not have to guess which.
+        /// </summary>
+        static readonly (string Name, string Reason)[] UnwantedFeatures =
+        {
+            // Meta's detached-controller profiles (XR_META_detached_controllers)
+            // suggest binding paths this runtime rejects, e.g.
+            // /user/detached_controller_meta/left/input/thumbrest/force.
+            // xrSuggestInteractionProfileBindings then fails with
+            // XR_ERROR_PATH_UNSUPPORTED, and because that call registers the whole
+            // combined binding set atomically, ONE bad path discards every
+            // controller binding: controllers still track, but nothing is bound to
+            // grab or trigger, so the game looks like it ignores your hands.
+            ("DetachedMetaQuestTouchPlusControllerProfile", "its binding paths discard all controller bindings"),
+            ("DetachedMetaQuestTouchProControllerProfile",  "its binding paths discard all controller bindings"),
+            ("DetachedOculusTouchControllerProfile",        "its binding paths discard all controller bindings"),
+
+            // Hand tracking is off for a different reason: the rig has nothing to
+            // drive with it. XRInputModalityManager on the XR Origin has
+            // leftController/rightController assigned but leftHand/rightHand empty,
+            // and the scene contains no hand skeleton driver or hand interactors.
+            // With these on, the moment the runtime reports tracked hands (put the
+            // controllers down, or move them out of view) the manager switches to
+            // hand mode, disables the controller objects and enables nothing, so
+            // the player is left with no way to interact at all. Forage's mechanics
+            // are grab-based, so controllers stay authoritative until hands are
+            // wired up properly as a feature of their own.
+            ("HandTracking",        "the rig has no hand objects, so hand mode would leave you with no input"),
+            ("MetaHandTrackingAim", "the rig has no hand objects, so hand mode would leave you with no input"),
+        };
+
+        /// <summary>
+        /// Match feature type names EXACTLY. An earlier version matched with
+        /// Contains(), and "MetaQuestTouchPlusControllerProfile" is a substring
+        /// of "DetachedMetaQuestTouchPlusControllerProfile" - so asking for the
+        /// Touch Plus profile silently switched on the detached one beside it.
+        /// </summary>
+        static void ApplyFeatures(OpenXRSettings settings)
         {
             foreach (var f in settings.GetFeatures<OpenXRFeature>())
             {
                 if (f == null) continue;
-                if (f.GetType().Name.Contains(nameFragment) || f.name.Contains(nameFragment))
+                string name = f.GetType().Name;
+
+                if (System.Array.IndexOf(WantedFeatures, name) >= 0)
                 {
-                    f.enabled = true;
-                    Debug.Log("[Forage]   OpenXR feature enabled: " + f.GetType().Name);
+                    if (!f.enabled) { f.enabled = true; Debug.Log("[Forage]   enabled  " + name); }
+                }
+                else
+                {
+                    var unwanted = System.Array.Find(UnwantedFeatures, u => u.Name == name);
+                    if (unwanted.Name != null && f.enabled)
+                    {
+                        f.enabled = false;
+                        Debug.Log($"[Forage]   DISABLED {name} - {unwanted.Reason}");
+                    }
                 }
             }
         }
@@ -192,6 +257,14 @@ namespace Forage.EditorTools
             bool profileOk = openXr != null && openXr.GetFeatures<OpenXRFeature>()
                 .Any(f => f != null && f.enabled && f.GetType().Name.Contains("ControllerProfile"));
             Check(profileOk, "A controller interaction profile is enabled", "Run step 1");
+
+            // One detached profile left on kills every controller binding, so it
+            // is a build blocker rather than a warning.
+            var detached = openXr == null ? null : openXr.GetFeatures<OpenXRFeature>()
+                .FirstOrDefault(f => f != null && f.enabled &&
+                                     UnwantedFeatures.Any(u => u.Name == f.GetType().Name));
+            Check(detached == null, "No input-breaking OpenXR feature enabled",
+                  detached == null ? "Run step 1" : $"{detached.GetType().Name} is on - run step 1");
 
             string androidPlayer = Path.Combine(EditorApplication.applicationContentsPath,
                                                 "PlaybackEngines", "AndroidPlayer");
