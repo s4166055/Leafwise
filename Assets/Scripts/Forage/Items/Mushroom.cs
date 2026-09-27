@@ -16,7 +16,8 @@ namespace Forage
         [Tooltip("Where this species grows — shown when the player notices it.")]
         public string habitatNote = "the forest";
 
-        public float eatDistance = 0.30f;
+        // Changing eat distance so that it is closer to the players view
+        public float eatDistance = 0.5f;
         public float eatHoldSeconds = 0.6f;
 
         [Header("Proximity reaction")]
@@ -29,6 +30,13 @@ namespace Forage
 
         void Awake()
         {
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.mass = 2f;
+                rb.linearDamping = 5f;
+            }
+
             _grab = GetComponent<XRGrabInteractable>();
             if (_grab != null)
             {
