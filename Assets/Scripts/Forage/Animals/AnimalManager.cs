@@ -19,6 +19,28 @@ namespace Forage
         public float snakeZoneTriggerDist = 16f;
         public float snakeDespawnDist = 38f;
 
+        /// <summary>Ambush zones that actually found suitable habitat (can be fewer than requested).</summary>
+        public int ActiveSnakeZoneCount => _snakeZones.Count;
+
+        // The one place each species' habitat is defined. SpawnAll places by
+        // these; anything that wants to reason about placement reads them here
+        // rather than keeping a second hand-typed copy that drifts.
+        public static readonly Habitat.Zone[] RabbitZones   = { Habitat.Zone.Meadow, Habitat.Zone.Woodland };
+        public static readonly Habitat.Zone[] SquirrelZones = { Habitat.Zone.Woodland, Habitat.Zone.DeepWoods };
+        public static readonly Habitat.Zone[] DeerZones     = { Habitat.Zone.Meadow };
+        public static readonly Habitat.Zone[] FoxZones      = { Habitat.Zone.Woodland, Habitat.Zone.Meadow };
+        public static readonly Habitat.Zone[] BearZones     = { Habitat.Zone.DeepWoods, Habitat.Zone.Woodland };
+
+        [Header("Build")]
+        /// <summary>
+        /// Keeps the _NORMALMAP shader variant in the APK. Fur and squirrel
+        /// materials are created at runtime, which URP's build-time variant
+        /// collection cannot see, so without a material asset referencing the
+        /// keyword the variant is stripped and every coat renders flat on device.
+        /// Assigned by ForageSceneBuilder; never read at runtime.
+        /// </summary>
+        public Material shaderVariantAnchor;
+
         [Header("Squirrel visual (assigned by scene builder)")]
         public GameObject squirrelModel;
         public RuntimeAnimatorController squirrelController;
@@ -104,15 +126,18 @@ namespace Forage
                 Debug.LogWarning("[Forage] NavMesh missing; animals not spawned.");
                 return;
             }
-            // each species is placed in the habitat it would really use
+            // each species is placed in the habitat it would really use; the
+            // spawner records whether it managed to, so tests can tell a real
+            // placement bug from a legitimate fallback
+            bool ok;
             for (int i = 0; i < rabbits; i++)
-                SpawnRabbit(ZoneSpawn(10f, 32f, Habitat.Zone.Meadow, Habitat.Zone.Woodland));
+                Place(SpawnRabbit(ZoneSpawn(10f, 32f, out ok, RabbitZones)), ok);
             for (int i = 0; i < squirrels; i++)
-                SpawnSquirrel(ZoneSpawn(8f, 30f, Habitat.Zone.Woodland, Habitat.Zone.DeepWoods));
+                Place(SpawnSquirrel(ZoneSpawn(8f, 30f, out ok, SquirrelZones)), ok);
             for (int i = 0; i < deer; i++)
-                SpawnDeer(ZoneSpawn(18f, 45f, Habitat.Zone.Meadow));
-            SpawnFox(ZoneSpawn(20f, 40f, Habitat.Zone.Woodland, Habitat.Zone.Meadow));
-            SpawnBear(ZoneSpawn(38f, 62f, Habitat.Zone.DeepWoods, Habitat.Zone.Woodland));
+                Place(SpawnDeer(ZoneSpawn(18f, 45f, out ok, DeerZones)), ok);
+            Place(SpawnFox(ZoneSpawn(20f, 40f, out ok, FoxZones)), ok);
+            Place(SpawnBear(ZoneSpawn(38f, 62f, out ok, BearZones)), ok);
 
             // snake ambush zones spread across the map, species assigned per zone
             // snake ambush zones sit in habitat that suits each species:
@@ -167,17 +192,34 @@ namespace Forage
             }
         }
 
-        /// <summary>Spawn point inside a species' habitat, snapped to the NavMesh.</summary>
-        Vector3 ZoneSpawn(float minR, float maxR, params Habitat.Zone[] zones)
+        /// <summary>
+        /// Spawn point inside a species' habitat, snapped to the NavMesh.
+        /// <paramref name="satisfied"/> is false when six attempts failed and the
+        /// animal was placed anywhere walkable instead.
+        /// </summary>
+        Vector3 ZoneSpawn(float minR, float maxR, out bool satisfied, params Habitat.Zone[] zones)
         {
             var rand = new System.Random(Random.Range(0, int.MaxValue));
             for (int attempt = 0; attempt < 6; attempt++)
             {
                 if (!Habitat.TryFindSpot(rand, minR, maxR, out var pos, zones)) continue;
                 if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var hit, 5f, UnityEngine.AI.NavMesh.AllAreas))
+                {
+                    satisfied = true;
                     return hit.position;
+                }
             }
+            satisfied = false;
             return RandomSpawn(minR, maxR); // fall back to anywhere walkable
+        }
+
+        static T Place<T>(T animal, bool satisfied) where T : Animal
+        {
+            animal.PlacementSatisfied = satisfied;
+            if (!satisfied)
+                Debug.LogWarning($"[Forage] {typeof(T).Name} could not find its habitat; placed anywhere walkable " +
+                                 $"(ended up in {animal.SpawnZone}).");
+            return animal;
         }
 
         Vector3 RandomSpawn(float minR, float maxR)

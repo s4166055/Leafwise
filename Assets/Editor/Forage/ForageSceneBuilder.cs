@@ -63,21 +63,43 @@ namespace Forage.EditorTools
             // 1 m up so the character controller settles onto the ground
             rig.transform.position = new Vector3(0f, ForestGenerator.CampLevel(forest.seed) + 1f, 0f);
 
-            // stand the player at adult eye height (~1.7 m ≈ 5'7") instead of
-            // the device default, which sits low when there is no room-scale floor
+            // Room-scale (Floor / stage space). Device mode is the seated 3DOF
+            // origin: it pins the origin to wherever the head happened to be at
+            // startup, ignores the real floor, and therefore needs a faked
+            // eye-height offset. With Floor the headset reports true head height
+            // and position, so physically stepping, leaning, crouching and
+            // turning all move the view 1:1 — the actual point of playing in VR.
             var origin = rig.GetComponentInChildren<Unity.XR.CoreUtils.XROrigin>();
             if (origin != null)
             {
-                origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Device;
+                origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Floor;
+
+                // XROrigin applies CameraYOffset ONLY when the runtime is in
+                // Device/Unbounded mode - including a mid-session drop from
+                // Floor when the boundary is lost - and zeroes the floor offset
+                // itself in Floor mode. So this is the seated fallback, not a
+                // fixed height, and it must not be zero or that fallback is gone.
+                // It is also the serialised height for flat play in the editor,
+                // where no XR subsystem exists and XROrigin never moves the offset.
                 origin.CameraYOffset = 1.7f;
                 if (origin.CameraFloorOffsetObject != null)
                     origin.CameraFloorOffsetObject.transform.localPosition = new Vector3(0f, 1.7f, 0f);
             }
+
+            // Log-only: reports which origin mode the headset actually granted.
+            rig.AddComponent<VrTrackingSetup>();
+
             var characterController = rig.GetComponentInChildren<CharacterController>();
             if (characterController != null)
             {
                 characterController.height = 1.75f;
                 characterController.center = new Vector3(0f, 0.875f, 0f);
+                // The forest is hilly and littered with roots and rocks. The
+                // defaults (45 deg slope, 0.3 m step) snag constantly, which
+                // reads as "movement is slow" even at a high move speed.
+                characterController.slopeLimit = 60f;
+                characterController.stepOffset = 0.6f;
+                characterController.skinWidth = 0.03f;
             }
 
             // --- systems ---
@@ -135,11 +157,12 @@ namespace Forage.EditorTools
             // sensory layer: audio ambience, feedback vignette, haptic hooks
             systems.AddComponent<AmbienceAndFeedback>();
             systems.AddComponent<SprintController>();
-            systems.AddComponent<SimulatorUiFix>();
+            systems.AddComponent<SimulatorGuard>();   // spawns the simulator only when no real headset is present
             new GameObject("ScreenFeedback").AddComponent<ScreenFeedback>();
 
             // wildlife: NavMesh bake + rabbits, snakes, squirrels
             var animals = systems.AddComponent<AnimalManager>();
+            animals.shaderVariantAnchor = ShaderVariantAnchor();
             animals.squirrelModel = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/FurrySquirrel/Meshes/Squirrel.fbx");
             animals.squirrelController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
@@ -413,7 +436,11 @@ namespace Forage.EditorTools
                     prefab != null && prefab.name.Contains("Device");
             }
 
-            so.FindProperty("m_AutomaticallyInstantiateSimulatorPrefab").boolValue = true;
+            // Off on purpose: XRI would spawn the simulator on every editor Play, even
+            // with a real Quest connected over Link, and the camera then follows the
+            // simulated HMD instead of the player's head. SimulatorGuard spawns it at
+            // runtime only when no headset is active.
+            so.FindProperty("m_AutomaticallyInstantiateSimulatorPrefab").boolValue = false;
             so.FindProperty("m_AutomaticallyInstantiateInEditorOnly").boolValue = true;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(settings);
@@ -442,6 +469,42 @@ namespace Forage.EditorTools
             }
             sim.Import(UnityEditor.PackageManager.UI.Sample.ImportOptions.OverridePreviousImports);
             AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// A material asset whose only job is to be referenced by the built scene
+        /// with <c>_NORMALMAP</c> enabled.
+        ///
+        /// URP strips shader_feature variants that no material in the build uses
+        /// (UniversalRenderPipelineGlobalSettings.m_StripUnusedVariants). Every
+        /// fur coat and the squirrel's rebuilt material are created at runtime
+        /// with EnableKeyword("_NORMALMAP"), which the build-time variant
+        /// collection cannot see; without this anchor the variant is stripped
+        /// from the APK, the keyword selects a variant that does not exist, and
+        /// the whole animal fix renders flat on device while looking right in
+        /// the editor, where variants compile on demand.
+        /// </summary>
+        static Material ShaderVariantAnchor()
+        {
+            System.IO.Directory.CreateDirectory(MaterialDir);
+            string path = $"{MaterialDir}/RuntimeVariantAnchor.mat";
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            else if (mat.shader != shader)
+            {
+                mat.shader = shader;
+            }
+            // Texture2D.normalTexture is a built-in flat normal map, so the asset
+            // has no dependency of its own.
+            mat.SetTexture("_BumpMap", Texture2D.normalTexture);
+            mat.EnableKeyword("_NORMALMAP");
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         static Transform FindDeep(Transform root, System.Func<Transform, bool> predicate)

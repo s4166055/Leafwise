@@ -35,8 +35,13 @@ namespace Forage
         void BuildBody()
         {
             var lit = Shader.Find("Universal Render Pipeline/Lit");
-            var fur = new Material(lit); fur.SetColor("_BaseColor", new Color(0.28f, 0.2f, 0.14f));
-            var muzzleMat = new Material(lit); muzzleMat.SetColor("_BaseColor", new Color(0.5f, 0.38f, 0.26f));
+            // A bear's coat is long and shaggy: coarse strands, strong relief.
+            // This is where the normal map earns the most, because a bear is
+            // large enough that the player sees the surface up close.
+            var fur = AnimalFactory.FurMaterial("bear-fur",
+                new Color(0.3f, 0.21f, 0.145f), new Color(0.13f, 0.09f, 0.06f), 31, 34f);
+            var muzzleMat = AnimalFactory.FurMaterial("bear-muzzle",
+                new Color(0.52f, 0.4f, 0.27f), new Color(0.33f, 0.25f, 0.17f), 32, 58f);
 
             var root = new GameObject("Body").transform;
             root.SetParent(transform, false);
@@ -47,13 +52,13 @@ namespace Forage
             _torso.localPosition = new Vector3(0, 0.85f, 0);
             var torsoMesh = new GameObject("TorsoMesh");
             torsoMesh.transform.SetParent(_torso, false);
-            torsoMesh.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.55f, 1, 0.06f, GetInstanceID(), new Vector3(0.85f, 0.85f, 1.35f));
+            torsoMesh.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.55f, 2, 0.06f, GetInstanceID(), new Vector3(0.85f, 0.85f, 1.35f));
             torsoMesh.AddComponent<MeshRenderer>().sharedMaterial = fur;
 
             var head = new GameObject("Head");
             head.transform.SetParent(_torso, false);
             head.transform.localPosition = new Vector3(0, 0.42f, 0.62f);
-            head.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.24f, 1, 0.05f, GetInstanceID() + 1, new Vector3(0.9f, 0.85f, 1.05f));
+            head.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothBlob(0.24f, 2, 0.05f, GetInstanceID() + 1, new Vector3(0.9f, 0.85f, 1.05f));
             head.AddComponent<MeshRenderer>().sharedMaterial = fur;
 
             var muzzle = new GameObject("Muzzle");

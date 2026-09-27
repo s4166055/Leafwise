@@ -129,6 +129,26 @@ namespace Forage
             Say(lines[count >= 2 ? 1 : 0]); // escalate to direct wording on repeats
         }
 
+        /// <summary>
+        /// True while a speech bubble is on screen or still fading. The orb is
+        /// only allowed to be visible during this window — the rest of the time
+        /// Scout is invisible, so it never becomes a ball following the player.
+        /// </summary>
+        public bool IsSpeaking => _bubbleTimer > 0f;
+
+        /// <summary>
+        /// End any speech immediately. Exists so a test can put Scout into a
+        /// known silent state and then assert, one LateUpdate later, that the
+        /// orb is not rendered - a behavioural check of the "white ball follows
+        /// me" fix, rather than a snapshot that is vacuous while Scout talks.
+        /// Deliberately does not touch the renderer: LateUpdate must do that.
+        /// </summary>
+        public void Silence()
+        {
+            _bubbleTimer = 0f;
+            if (_bubbleGroup != null) _bubbleGroup.alpha = 0f;
+        }
+
         public void Say(string text)
         {
             if (_bubbleText == null) return;

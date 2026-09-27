@@ -313,6 +313,12 @@ All development is driven and verified through the **Unity MCP relay** (Unity AI
 | `fbd62ef` | Habitat zones — each species lives where it really would |
 | `8aebb48` | Mushrooms react as you approach; Scout names the species and its habitat |
 | `a057fab` | **Fix — Scout orb no longer floats in view as a white ball** |
+| `1cbd852` | **Fix — repaired the manifest so the project can open at all** (duplicate JSON keys; a module that only exists in Unity 6000.5) |
+| `6edad70` | **C8 — one-command Quest 3 XR setup, validation and APK build** |
+| `a481fa4` | C8 — automated forest self-test (52 assertions, runs itself in play mode) |
+| `fb15fa5` | C8 — [SIDELOAD.md](SIDELOAD.md), the headset-day install guide |
+| `c2582df` | Ignore a blank project Unity Hub scaffolded inside the repo |
+| `14ce337` | C8 — serialised Quest player + OpenXR settings |
 
 ---
 
@@ -322,10 +328,234 @@ All development is driven and verified through the **Unity MCP relay** (Unity AI
 |---|---|
 | C6 | Deer (quiet approach), fox (steals unsecured food), bear (never run), ambient birds/owl, **day→night cycle** (gives Warmth real stakes, completes “survive to nightfall”) |
 | C7 | Shelter building (**ProBuilder** geometry), visible **Scout companion** voicing the existing hint bus, cooking mushrooms **and fish** on the fire, fishing, berry bushes, session summary |
-| C8 | Quest 3 APK (toolchain installed: Android SDK/NDK/OpenJDK for 6000.3.21f1), on-device profiling — ~11 k renderers may need foliage-card trimming/culling; Burst fallback `-burst-disable-compilation` prepared |
+| C8 | ✅ **Complete** — APK built and verified (§12). Outstanding: **on-device profiling**, which genuinely cannot be done until the headset arrives. ~10.4 k renderers is the likely bottleneck; the tuning order and the Burst `-burst-disable-compilation` fallback are written up in [SIDELOAD.md](SIDELOAD.md) |
 | Audio | Structurally verified; audible pass needs a focused editor / headset |
 | ai-game.dev skills | 108 skill files exported globally; their CLI execution requires an interactive `unity-mcp-cli login` (cloud account) — all equivalent operations run through the Unity relay instead |
 | Editor stability | The MCP plugin’s cloud reconnect could deadlock domain reloads — auto-connect disabled (`Forage ▸ Disable MCP Plugin Auto-Connect`) |
+
+---
+
+## 12. C8 — Quest 3 build pipeline
+
+### 12.1 Settings as code, not as clicks
+
+Every Quest setting is applied by [QuestBuild.cs](Assets/Editor/Forage/QuestBuild.cs) rather than checked into the inspector by hand. The reason is practical: inspector state lives in binary-ish project assets that nobody reviews, and it silently differs between machines. In code it appears in a diff, and any teammate reproduces it by running one menu item.
+
+**Menu: Forage ▸ Quest**
+
+| Item | Does |
+|---|---|
+| `1 - Configure XR and Player Settings` | Applies the full Quest configuration below |
+| `2 - Validate Build Readiness` | 12 pre-flight checks, prints a PASS/FAIL table |
+| `3 - Build APK` | Validates, then builds `Builds/Leafwise.apk` |
+| `4 - Build and Run on Headset` | Same, then installs and launches over USB |
+
+| Setting | Value | Why |
+|---|---|---|
+| Scripting backend | IL2CPP | Mono is not supported on Android/Quest |
+| Architecture | **ARM64 only** | Quest 3 is 64-bit; shipping armeabi-v7a just inflates the APK |
+| Graphics API | **Vulkan** | Meta's recommended path on Quest 3 |
+| Stereo rendering | **Single-pass instanced** (multi-view) | Renders both eyes in one pass — the single largest VR GPU saving |
+| Colour space | Linear | Correct lighting; gamma looks washed out |
+| Min SDK | 32 | Meta store floor for Quest 3 |
+| Bundle id | `com.rmit.forage` | Stable app identity so `adb install -r` updates in place |
+| XR loader | OpenXR (Android), assigned via `XRPackageMetadataStore` | The modern path; the legacy Oculus plugin is deprecated |
+| OpenXR features | Meta Quest Support + Touch Plus / Touch Pro / Oculus Touch profiles | **Without an interaction profile the controllers report no input on device** — a silent failure that only shows up in the headset |
+
+### 12.2 Validation gate
+
+Step 2 exists so a misconfiguration fails in seconds instead of thirty minutes into IL2CPP. Result:
+
+```
+PASS  Forage scene exists                     PASS  Vulkan is the primary graphics API
+PASS  Forage scene is in build settings       PASS  OpenXR loader active for Android
+PASS  IL2CPP scripting backend                PASS  Meta Quest OpenXR feature enabled
+PASS  ARM64 only                              PASS  A controller interaction profile is enabled
+PASS  minSdkVersion 32 or higher              PASS  Android Build Support installed
+PASS  Linear colour space
+PASS  Multi-view (single pass instanced)      READY TO BUILD
+```
+
+### 12.3 Build result
+
+```
+[Forage] BUILD SUCCEEDED -> Builds\Leafwise.apk  (1554.5 MB in 29.6 min)
+```
+
+86 MB on disk (1554.5 MB is Unity's uncompressed total). Verified by inspecting the APK as a zip archive — the build "succeeding" is not by itself proof it will run on a Quest:
+
+| Check | Result |
+|---|---|
+| Native ABIs present | **`arm64-v8a` only** — no wasted 32-bit slice |
+| `libil2cpp.so` | present — IL2CPP genuinely used |
+| `libopenxr_loader.so`, `libUnityOpenXR.so`, `libUnityOpenXRHands.so` | present — XR runtime shipped |
+| Package id in manifest | `com.rmit.forage` |
+| Manifest targets | Oculus / HorizonOS |
+| Entries / arm64 libs | 856 / 22 |
+
+Install instructions: [SIDELOAD.md](SIDELOAD.md).
+
+### 12.4 Automated forest verification
+
+The world is generated in `ForestGenerator.Awake()`, so it exists only in play mode and cannot be checked from the saved scene. [ForageSelfTest.cs](Assets/Editor/Forage/ForageSelfTest.cs) drives the editor through *open scene → enter play → settle → assert → exit play* and writes a report. Its phase lives in `SessionState` so it survives the domain reloads play mode causes, and dropping a `Temp/forage-selftest.request` file starts it from outside the editor.
+
+**Result: 51 of 52 assertions passed on the first run.** The single failure was a defect in the test, not the game — it measured `SprintController`'s transform, which sits on the systems container at the origin, rather than the XR rig. Corrected to measure the rig and camera.
+
+Representative measured values:
+
+| Assertion | Measured |
+|---|---|
+| Camp is not a crater | camp 3.15 m vs forest ring at 20 m 2.95 m — **delta 0.20 m** |
+| Fire pit rests on ground | pit y 3.17, ground 3.17 — **delta 0.00 m** |
+| Forest density | **10,426** mesh renderers, 6,638 tree-ish |
+| Wind coverage | **9,269** renderers swaying, 7 materials on `Forage/FoliageWind` |
+| Water transparency | alpha **0.45**, 35 fish/crabs below the surface |
+| Habitat zones | all five present; origin classifies as `Camp` |
+| Animal placement | deer → `Meadow`, squirrels → `Woodland`; snakes **0 alive at start** (proximity-spawned) |
+| Animals grounded | every animal within **0.02–0.15 m** of the terrain |
+| Materials | **no** missing or error (magenta) materials |
+
+The assertions deliberately pin the bugs we have actually shipped before — camp in a crater, fire pit in a hole, deer buried in the ground, magenta materials, player falling through terrain — so a future change that reintroduces one is caught by a test rather than by eye.
+
+### 12.5 Three blockers fixed to get here
+
+Worth recording, because they were all environmental rather than gameplay bugs:
+
+1. **`packages-lock.json` was not valid JSON** — duplicate keys (`com.unity.test-framework`, `com.unity.nuget.newtonsoft-json`). Unity exited with code 1 and loaded no packages at all.
+2. **`com.unity.modules.physicscore2d` does not exist in 6000.3.21f1** — it ships with Unity 6000.5 and arrived with the merged `environment` branch. The GUI tolerated it; batch mode called it fatal.
+3. **Unity Hub had never been told about Leafwise.** It only knew `My project`, which is why the editor kept opening the blank blue sample scene. Fixed by registering `E:\unity\Leafwise` in the Hub — use **Add ▸ Add project from disk**, never *New project* (which scaffolds a fresh empty project, as it did once into this very folder).
+
+---
+
+## 13. Headset findings and fixes (first on-device test)
+
+The first real Quest 3 session produced three reports. All three were genuine, and the first was the most serious: the game was only playable with the joystick, and moving your head did not give the VR experience it should.
+
+### 13.1 The head-tracking report — root cause
+
+The rig was saved with a **seated** tracking origin:
+
+```
+m_RequestedTrackingOriginMode: 1   ← Device
+m_CameraYOffset: 1.7
+```
+
+`Device` is the 3DOF origin. It pins the tracking origin to wherever the head happened to be at app start, ignores the real floor, and therefore needs a *faked* eye height — which is exactly what that 1.7 m offset was doing. Physical movement is measured from an arbitrary point rather than from the room, so stepping, leaning and crouching never map 1:1 to the view, and locomotion collapses onto the joystick.
+
+The rig now requests **Floor** (stage space), the correct origin for a standing room-scale title: the headset reports true head height and position, so walking, leaning, crouching and turning drive the view directly. The faked offset is removed, since the runtime supplies real height and any offset of ours would stack on top of it.
+
+Requesting Floor is not a guarantee — a headset with no room boundary, or one in a stationary profile, can hand back Device. [VrTrackingSetup.cs](Assets/Scripts/Forage/Core/VrTrackingSetup.cs) checks what was actually granted and applies a seated eye height *only* if Floor was refused, logging every branch:
+
+```
+[Forage] VR: supported tracking origin modes = Device, Floor
+[Forage] VR: tracking origin mode in use = Floor
+[Forage] VR: ROOM-SCALE ACTIVE — physically walking, leaning and crouching move the view.
+[Forage] VR head check: device valid=True tracked=True | moved 0.184 m, turned 27.3 deg over 2 s
+```
+
+That last line exists so "head tracking does nothing" can be confirmed or ruled out from `adb logcat -s Unity:V` rather than from feel.
+
+**Ruled out with evidence** before changing anything, so the record is clear: the XR Interaction Simulator was *not* shipping in the build (`m_AutomaticallyInstantiateInEditorOnly: 1`); the Android manifest is correctly an immersive VR app (`com.oculus.intent.category.VR`, `supportedDevices: quest2|questpro|quest3|quest3s`, `vr.headtracking` — the absent `vr_only` key is the obsolete Gear-VR-era declaration); `TrackedPoseDriver` is present on the rig camera; movement was already head-relative (`forwardSource = Main Camera`); and no second camera was rendering over the XR one.
+
+`SpawnGuard`'s head clearance also had to drop from **1.5 m to 0.25 m**. At eye height it would shove the rig upward every frame the player crouched — fighting them and drifting the rig skyward — because under real tracking a low head is a legitimate pose, not a fall-through.
+
+### 13.2 The movement-speed report — the setting was never the limiter
+
+Travel felt slow despite a 12 m/s setting, because the `CharacterController` kept its defaults: **45° slope limit and a 0.3 m step offset**. On hilly ground littered with roots, rocks and fallen logs the player snagged constantly, so real travel was a fraction of the configured speed. Widened to **60° and 0.6 m** — that is the fix that makes the forest feel crossable.
+
+Speeds raised on top of it: **walk 16 m/s, run 30 m/s**. `SprintController` now drives *every* `ContinuousMoveProvider` on the rig instead of the first one `FindFirstObjectByType` happened to return, and logs what it applied — a rig carrying two providers would otherwise leave one at its prefab default of 2.5 m/s, making the felt pace depend on which one drove the player.
+
+### 13.3 The animal-fidelity report
+
+The squirrel looked well defined because it is a real model with albedo and normal maps. Every procedural mammal was a flat `_BaseColor` on a smooth blob: one evenly lit surface with no high-frequency detail, which is precisely why they read as plasticine beside it.
+
+`AnimalFactory.FurMaterial` now bakes a coat per species — an albedo of directional strands over a darker undercoat, plus a **normal map** derived from the same strand height field. The normal map is the part that matters; per-pixel relief is what lets the eye resolve a surface as hair. Strands run along V because `SmoothBlob` lays out spherical UVs, so fur lies along the body instead of swirling around it.
+
+| Species | Strand density | Character |
+|---|---|---|
+| Bear | 34 | long, shaggy, strong relief — seen closest, so it gains the most |
+| Fox | 46 | medium length, slightly glossy |
+| Deer | 68 | short, dense, lies flat |
+| Rabbit | 52 | the shared mid/light coat |
+
+Eyes gained real specular response; matte spheres for eyes are one of the strongest toy signals on an otherwise decent model. Body and head blobs on the bear, fox and rabbit went from subdivision 1 to 2 so silhouettes read smoothly.
+
+Checked by rendering the rabbit and coat swatches through an offscreen camera and looking at the image, not by assuming. The first attempt leaned on a low-frequency clump term and looked like wet clay; the noise is now weighted toward its finer octaves.
+
+### 13.4 The test harness was reading a frozen frame
+
+Worth recording as a methodology fix. An unfocused editor throttles — often halts — the player loop, so `Awake` and `Start` ran but nothing after the first `yield` did: coroutines, `Update` and NavMesh settling all stalled. That is how `VrTrackingSetup` could log its first line and then appear to do nothing, with no hint why. The settle phase now drives `EditorApplication.Step()`, making the wait real whether or not the window has focus.
+
+Stepping immediately exposed three assertions that were testing the frozen frame rather than the design, all of which had been passing for the wrong reason:
+
+| Assertion | Why it was wrong | Now |
+|---|---|---|
+| `snakes == 0` at start | proximity spawning genuinely fires for a zone near camp | `alive < zones` — not all pre-placed |
+| no visible Scout renderers | Scout actually speaks its opening hint | tied to `ScoutCompanion.IsSpeaking` |
+| habitat by live position | animals wander; a squirrel had walked to the pond | `Animal.SpawnZone`, recorded at placement |
+
+**56 assertions, all passing** against a stepping simulation.
+
+### 13.5 Build note
+
+The APK build failed four times before succeeding, and none of it was code: a security product on this machine (`Reason Cybersecurity`, which is why Defender reports itself disabled) intermittently denies *execution* of the NDK linker `ld.lld.exe` under build load. Run manually it works fine (`LLD 18.0.3`), so the error never means the NDK is broken. Retrying is the fix — IL2CPP output is cached, so a retry links in about a minute. Clearing `Library/Bee` and `-burst-disable-compilation` both did not help. The permanent fix is an antivirus exclusion for `C:\Program Files\Unity` and `E:\unity\Leafwise`.
+
+---
+
+## 14. Review pass and test suite
+
+An eight-angle code review of the headset-fix commits (correctness, removed behaviour, cross-file tracing, efficiency, reuse, simplification, altitude, conventions) produced 17 verified findings. Fourteen were fixed; three design-level suggestions were left deliberately (§14.3). The two that mattered most would only have shown up on the headset.
+
+### 14.1 The two findings that would have undone the headset fixes
+
+**`_NORMALMAP` was being stripped from the Android build.** URP removes shader_feature variants that no material in the build uses. Every fur coat and the squirrel's rebuilt material are created *at runtime* with `EnableKeyword("_NORMALMAP")`, which the build-time variant collection cannot see — so the variant was stripped from the APK, the keyword selected a variant that did not exist, and every animal would have rendered flat on device while looking correct in the editor (where variants compile on demand). Fixed by `RuntimeVariantAnchor.mat`, a material asset with the keyword enabled, referenced from `AnimalManager.shaderVariantAnchor` in the built scene so the variant survives.
+
+**`VrTrackingSetup` re-implemented `XROrigin`, and worse.** XROrigin already requests Floor, retries while the runtime reports `Unknown`, applies `CameraYOffset` only in Device/Unbounded mode, zeroes the floor offset in Floor mode, and re-applies all of that on a mid-session origin change. My component zeroed `CameraYOffset` on Floor — throwing away the fallback for a later drop to Device (guardian lost, stationary mode), which would have put the player's eyes on the grass with no recovery — and decided from a one-frame poll, misclassifying a healthy headset while the reference-space change was still pending. The rig now carries `Floor + CameraYOffset 1.7` (a seated fallback, ignored in Floor mode) and `VrTrackingSetup` is **log-only**.
+
+### 14.2 Other fixes from the review
+
+| Finding | Fix |
+|---|---|
+| Live DevAgent access token committed to the public repo, in a `Resources/` asset that ships inside the APK | Untracked and gitignored. **The token must still be rotated** — the old one is in git history |
+| `EditorApplication.Step()` leaves the editor paused after every self-test; settle was wall-clock | Unpaused before exit; settle on `Time.timeSinceLevelLoad` |
+| `runSpeed = 30` equals `GameManager`'s teleport-rejection threshold, dropping the samples that tell wildlife you are running | Run speed 26 m/s |
+| Snake skin baked per snake and leaked on every zone respawn (~350 KB each) | One cached skin per species |
+| Ten 256 px fur bakes on the main thread in one startup frame (~2.6 M Perlin calls) | 128 px, `Color32`, CPU copy released after upload |
+| Deer eyes still matte via a duplicate `Blob`; dead `Shader.Find` in Deer/Fox | Shared glossy `AnimalFactory.Eye` |
+| Subdivision 2 applied to 1.4 cm eyes and feet | Subdivision is a parameter; 2 only for body masses |
+| Two caching layers for the same materials | One keyed cache, cleared on subsystem registration |
+| Snake proximity assertion compared against requested zones, not the ones that exist | `AnimalManager.ActiveSnakeZoneCount` |
+| Scout orb assertion tautological while Scout talks | Timer-only `IsSpeaking`, `Silence()`, and a behavioural PlayMode test |
+| Eye-height assertion skipped exactly where deterministic | Inverted: asserted in flat mode, reported with a headset |
+| Habitat asserted by re-deriving zone from position, failing legitimate fallbacks | Spawner records `Animal.PlacementSatisfied` |
+| Sprint never re-acquired a destroyed move provider | Re-acquires on any null entry |
+
+### 14.3 Left as design decisions
+
+- **`SpawnGuard`'s head clamp duplicates XRI's body-follow collision.** Retuning to 0.25 m removed the crouch fight; the reviewer is right that the deeper fix is to drop the clamp and let `XRBodyTransformer`/`GravityProvider` own it. Kept for now because it also catches genuine fall-through.
+- **Step offset 0.6 m makes most debris climbable; 16/26 m/s is fast for VR comfort.** Both are what the tester asked for. The cleaner alternative — put sub-knee debris on a layer the controller ignores — is noted for a comfort pass with the headset.
+- **`FurMaterial` duplicates `ProceduralTextures` helpers.** A refactor, not a bug.
+
+### 14.4 Test suite
+
+The project now has a Unity Test Framework suite in its own assemblies (`Forage.Tests.EditMode`, `Forage.Tests.PlayMode`), which required moving the game code into `Forage.asmdef` / `Forage.Editor.asmdef` — test assemblies cannot reference the default `Assembly-CSharp`.
+
+| Suite | Tests | What it covers | Result |
+|---|---|---|---|
+| EditMode | 9 | Terrain maths, fur/eye materials, build validation (12 checks), scene serialisation (Floor origin, fallback offset, slope/step, simulator editor-only) | **9 / 9** |
+| PlayMode | 5 | Loads the real scene, settles 6 s of *game* time, then: all 64 world invariants, room-scale origin, sprint speeds on every provider, Scout hides after `Silence()`, no animal buried or floating | **5 / 5** |
+
+The 64 world invariants live once, in `Forage.Testing.WorldInvariants`, shared by the PlayMode test and the editor self-test (`Forage ▸ Test ▸ Run Forest Self-Test`) so there is a single definition of "the world is healthy".
+
+**Running them:** `Forage ▸ Test ▸ Run EditMode Tests / Run PlayMode Tests` writes `Temp/test-results-<Mode>.txt`. Headless (CI):
+
+```powershell
+& $unity -batchmode -projectPath E:\unity\Leafwise -buildTarget Android `
+  -runTests -testPlatform PlayMode -assemblyNames Forage.Tests.PlayMode `
+  -testResults E:\unity\Leafwise\Temp\playmode-results.xml -logFile E:\unity\Leafwise\Logs\playmode.log
+```
+
+Exit code 0 = all passed. Prefer batch mode on this machine: during an in-editor PlayMode run the security product locked `OpenXRPackageSettings.asset` mid-reserialisation, Unity raised a modal *"Moving file failed"*, and the run stalled until dismissed. Batch mode cannot show dialogs.
 
 ---
 

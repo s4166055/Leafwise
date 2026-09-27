@@ -33,9 +33,29 @@ namespace Forage
 
         protected float PlayerSpeed => GameManager.Instance != null ? GameManager.Instance.PlayerSpeed : 0f;
 
+        /// <summary>
+        /// The habitat zone this animal was placed in. Recorded because animals
+        /// wander: once the simulation has run for a few seconds a squirrel may
+        /// legitimately be standing at the pond, so its current position says
+        /// nothing about whether habitat-based placement worked. This does.
+        /// </summary>
+        public Habitat.Zone SpawnZone { get; private set; }
+
+        /// <summary>
+        /// Whether the spawner actually found a spot in this species' habitat.
+        /// AnimalManager.ZoneSpawn falls back to "anywhere walkable" after six
+        /// failed attempts; that fallback is legitimate for gameplay but it is
+        /// the spawner's decision, and the spawner is the only thing that knows
+        /// it happened. Tests assert this flag rather than re-deriving a zone
+        /// from the position, which would fail a correct fallback as if the
+        /// placement rule were broken.
+        /// </summary>
+        public bool PlacementSatisfied { get; internal set; } = true;
+
         protected virtual void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
+            SpawnZone = Habitat.ZoneAt(transform.position);
         }
 
         protected void SetBody(Transform visualRoot) => body = visualRoot;

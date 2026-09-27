@@ -15,8 +15,14 @@ namespace Forage
     {
         public Transform rig;
         public float fallMargin = 6f;
-        /// <summary>Keep the head this far above the ground — adult eye height.</summary>
-        public float headClearance = 1.5f;
+        /// <summary>
+        /// How far above the ground the head is kept. Deliberately small: with
+        /// room-scale tracking the player can legitimately crouch or kneel, and
+        /// an eye-height-sized clearance (this was 1.5 m) shoves the rig upward
+        /// every frame they do — physically fighting them and drifting the whole
+        /// rig skyward. Only a head that is genuinely underground is a bug.
+        /// </summary>
+        public float headClearance = 0.25f;
 
         Transform _head;
         Vector3 _lastSafePos = new Vector3(0f, 1f, 0f);
