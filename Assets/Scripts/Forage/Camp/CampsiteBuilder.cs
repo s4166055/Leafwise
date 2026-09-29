@@ -53,7 +53,7 @@ namespace Forage
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = 6f + (float)rand.NextDouble() * 14f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                branch.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.15f, z);
+                PlaceOnGround(branch.transform, x, z, forest, 0.15f);
                 branch.transform.rotation = Quaternion.Euler(0, (float)rand.NextDouble() * 360f, 0);
             }
             for (int i = 0; i < 5; i++)
@@ -62,8 +62,30 @@ namespace Forage
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = 5f + (float)rand.NextDouble() * 12f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                bundle.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.12f, z);
+                PlaceOnGround(bundle.transform, x, z, forest, 0.12f);
             }
+        }
+
+
+        /// <summary>
+        /// Put a loose item on the ground physics actually uses.
+        ///
+        /// HeightAt is the analytic height field. The terrain mesh samples it on
+        /// a ~1.3 m grid (worldSize 144 / gridResolution 110), so between two
+        /// samples the flat triangle can sit ABOVE the curve in a concave dip.
+        /// An item placed at HeightAt plus a few centimetres then starts inside
+        /// the mesh, and PhysX drops it straight through the world - one berry
+        /// cluster was found at y = -152 falling at terminal velocity.
+        /// A downward ray finds the real surface; the analytic height stays as
+        /// the fallback for the rare miss.
+        /// </summary>
+        static void PlaceOnGround(Transform t, float x, float z, ForestGenerator forest, float clearance)
+        {
+            float analytic = forest.HeightAt(x, z);
+            if (Physics.Raycast(new Vector3(x, analytic + 6f, z), Vector3.down, out var hit, 30f))
+                t.position = new Vector3(x, hit.point.y + clearance, z);
+            else
+                t.position = new Vector3(x, analytic + clearance, z);
         }
 
         void ScatterBerries(ForestGenerator forest)
@@ -77,7 +99,7 @@ namespace Forage
                 float r = 8f + (float)rand.NextDouble() * 45f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
                 if (Vector2.Distance(new Vector2(x, z), forest.pondCenter) < forest.pondRadius + 1f) continue;
-                cluster.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.06f, z);
+                PlaceOnGround(cluster.transform, x, z, forest, 0.10f);
             }
         }
 
@@ -206,7 +228,9 @@ namespace Forage
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = Mathf.Lerp(minR, maxR, (float)rand.NextDouble());
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                return new Vector3(x, forest.HeightAt(x, z) + 0.1f, z);
+                float gy = forest.HeightAt(x, z);
+                if (Physics.Raycast(new Vector3(x, gy + 6f, z), Vector3.down, out var gh, 30f)) gy = gh.point.y;
+                return new Vector3(x, gy + 0.12f, z);
             }
 
             for (int i = 0; i < drySticks; i++)
@@ -224,7 +248,7 @@ namespace Forage
                 float r = forest.pondRadius + 1.2f + (float)rand.NextDouble() * 2f;
                 float x = forest.pondCenter.x + Mathf.Cos(a) * r;
                 float z = forest.pondCenter.y + Mathf.Sin(a) * r;
-                stick.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.1f, z);
+                PlaceOnGround(stick.transform, x, z, forest, 0.12f);
             }
 
             for (int i = 0; i < tinderBundles; i++)
