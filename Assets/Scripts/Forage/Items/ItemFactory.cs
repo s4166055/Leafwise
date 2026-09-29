@@ -6,12 +6,46 @@ namespace Forage
     /// <summary>Builds grabbable survival items from procedural meshes.</summary>
     public static class ItemFactory
     {
+        static PhysicsMaterial _grippyGround;
+
+        /// <summary>
+        /// High-friction, zero-bounce surface for loose items.
+        ///
+        /// A stick is a capsule collider lying on its side, which to PhysX is a
+        /// log. With the default material and no damping it rolls down the
+        /// terrain's slopes and never stops, so gathered firewood wanders off
+        /// across the forest before you can drop it in the pit.
+        /// </summary>
+        static PhysicsMaterial GrippyGround =>
+            _grippyGround != null ? _grippyGround : _grippyGround = new PhysicsMaterial("ForageItem")
+            {
+                dynamicFriction = 0.85f,
+                staticFriction = 0.95f,
+                bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Maximum,
+                bounceCombine = PhysicsMaterialCombine.Minimum,
+            };
+
         /// <summary>Adds Rigidbody + XRGrabInteractable + SurvivalItem to a prop root.</summary>
         public static SurvivalItem MakeGrabbable(GameObject go, ItemKind kind, float mass = 0.5f)
         {
             var rb = go.AddComponent<Rigidbody>();
             rb.mass = mass;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+            // Damping is what actually stops a dropped item wandering. The
+            // defaults are 0 linear and 0.05 angular: almost nothing, so an
+            // elongated collider keeps rolling on any slope. These values still
+            // let a thrown item fly properly; they just bleed off the roll once
+            // it lands.
+            rb.linearDamping = 0.6f;
+            rb.angularDamping = 4f;
+
+            // Let physics put the item to sleep quickly once it has settled.
+            rb.sleepThreshold = 0.05f;
+
+            foreach (var c in go.GetComponentsInChildren<Collider>())
+                if (!c.isTrigger) c.sharedMaterial = GrippyGround;
 
             var grab = go.AddComponent<XRGrabInteractable>();
             grab.movementType = XRBaseInteractable.MovementType.VelocityTracking;
