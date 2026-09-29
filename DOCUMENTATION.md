@@ -129,15 +129,15 @@ Species are placed by searching only the zones that suit them; waterside species
 
 ### 5.2 HOW TO START A FIRE — step by step
 
-**1 · Gather tinder.** Straw-coloured **tinder bundles** lie around the camp clearing (4 of them). Point at one, squeeze **grip** to pick it up, and drop it inside the stone ring. *Without tinder nothing will ever catch — Scout will tell you so.*
+**1 · Gather tinder.** Straw-coloured **tinder bundles** lie around the camp clearing (4 of them). Pinch it with your fingers (or squeeze **grip** on a controller) to pick it up, hold it over the stone ring and let go. You can lower it right into the ring before releasing: anything let go inside the ring is taken as fuel and settles into the pile. *Without tinder nothing will ever catch — Scout will tell you so.*
 
-**2 · Gather dry wood.** Pick up **1–2 sticks** and drop them in the ring too. ⚠️ **Sticks lying near the pond are damp** — they only deliver a quarter of the heat. Damp fuel no longer ruins the fire permanently: the penalty scales with the wet-to-dry ratio, so piling on dry wood rescues it.
+**2 · Gather dry wood.** Pick up **1–2 sticks** (20 lie around the clearing) and drop them in the ring too. ⚠️ **Sticks lying near the pond are damp** — they only deliver a quarter of the heat. Damp fuel no longer ruins the fire permanently: the penalty scales with the wet-to-dry ratio, so piling on dry wood rescues it.
 
 **3 · Make a spark — pick either method.**
 
 | Method | What to do |
 |---|---|
-| **Flint & stone** *(fastest)* | Grab the **two flint stones** beside the fireboard, one in each hand, and strike them together **hard** directly over the pit. A solid hit (≥ 2.4 m/s) throws real sparks; **2–3 good strikes** ignite the tinder. Weak taps only spark faintly and Scout says "strike harder". |
+| **Flint & stone** *(fastest)* | The **two flint stones** are the dark, glossy stones on the ground just beside the fire ring, next to the fireboard. Until you pick one up they give off a small twinkle of sparks every few seconds. Take one in each hand and strike them together **hard** directly over the pit. A solid hit (≥ 1.7 m/s) throws real sparks; **2–3 good strikes** ignite the tinder. Weak taps only spark faintly and Scout says "strike harder". |
 | **Hand drill** *(traditional)* | Grab the **drill stick**, press its tip onto the **fireboard**, and scrub back and forth **fast**. Heat builds with tip speed (up to 16/s) and the controller rumbles with the friction. Stop and it cools. |
 
 **4 · Watch the stages.** Heat 60 → **embers** (glow, heavy smoke). Heat 100 → **flames**, and the *Start a campfire* objective completes with a chime.
@@ -147,9 +147,9 @@ Species are placed by searching only the zones that suit them; waterside species
 **What the fire gives you:** warmth at night, boiling water safe to drink, cooking for mushrooms and fish, and it keeps bears away from camp.
 
 ### 5.3 Fire — two authentic ignition methods
-**Shared state machine** (`FirePit`): Unlit → Ember (heat 60) → Burning (heat 100). Heat decays 7/s after a 1.2 s grace when you stop. Requires **tinder + at least one stick** dropped into the stone ring (trigger detects released items only).
-- **Hand drill**: grab the drill stick, press its tip on the fireboard, scrub fast. Tip speed → heat (16/s at full speed); friction haptics scale with speed; smoke appears past 20% heat; too slow → Scout hint.
-- **Flint & stone** (2 stones by the fireboard): strike them together **hard** (≥2.4 m/s relative impact) near the pit — spark burst + click + haptic; each good strike ≈ +40 heat, so **2–3 solid strikes** ignite. Weak strikes (≥1.3 m/s) spark faintly and hint “strike harder”.
+**Shared state machine** (`FirePit`): Unlit → Ember (heat 60) → Burning (heat 100). Heat decays 7/s after a 1.2 s grace when you stop. Requires **tinder + at least one stick** in the stone ring. The ring's trigger accepts an item the moment it is not held, on entry *or* while it rests inside (`OnTriggerStay`): the natural VR move is to lower a stick in and then let go, and an Enter-only trigger never counted those, so they rolled out of the ring. When the fire burns out the used fuel is cleared.
+- **Hand drill**: grab the drill stick, press its tip on the fireboard (20 cm tolerance), scrub fast. Tip speed → heat (16/s at 1.2 m/s); friction haptics scale with speed; smoke appears past 20% heat; too slow → Scout hint.
+- **Flint & stone** (2 stones by the fireboard): strike them together **hard** (≥1.7 m/s relative impact) near the pit — spark burst + click + haptic; each good strike ≈ +40 heat, so **2–3 solid strikes** ignite. Weak strikes (≥1.0 m/s) spark faintly and hint “strike harder”.
 - **Wet-wood lesson**: sticks near the pond are damp — heat ×0.25 and a Scout hint. Find dry wood.
 - **Fuel scaling** (user request): each stick adds 150 s of burn; feeding a burning fire enlarges it — flame emission 35→110, size and speed up, light range and warmth radius grow (1→2.1× at 7+ sticks).
 
@@ -231,12 +231,15 @@ Fish (7) and crabs (3) as described in §4.3 — ambient, and groundwork for the
 
 ## 7. Locomotion, Comfort & Safety
 
-- **Sprint:** hold **Left Shift** (simulator) or **click either thumbstick** (Quest). **Walk 12 m/s, run 22 m/s** — tripled from the original pace, and with the world 20% smaller a crossing takes ~12 s rather than ~45 s. Running still scares wildlife, tying movement into the education loop.
+- **Hands first:** the rig is `Complete XR Origin Set Up Hands Variant`. Put the controllers down and your tracked hands appear (pinch to grab, poke for UI); pick a controller up and `XRInputModalityManager` switches back. Movement stays on the controller thumbsticks for now; with hands you can walk around your real room. The wrist HUD follows the left controller, or the tracked left wrist (turned to face you) in hand mode. Hand tracking is on for Android and Standalone (`QuestBuild` WantedFeatures), so it also works over Air Link.
+- **Comfort vignette:** the template closed the view to 70% whenever you moved or turned, which at this pace darkened the edges almost constantly. It is now 90% (`ForageSceneBuilder.LightenComfortVignette`).
+- **Sprint:** hold **Left Shift** (simulator) or **click either thumbstick** (Quest). **Walk 16 m/s, run 26 m/s** — tripled from the original pace, and with the world 20% smaller a crossing takes ~12 s rather than ~45 s. Running still scares wildlife, tying movement into the education loop.
 - **SpawnGuard** — three-layer anti-fall system born from a real playtest bug:
   1. Rig spawns 1 m above ground and settles (never starts inside the terrain collider).
   2. **Head-ground clamp**: head tracking has no collision, so if the camera would sink into a hillside (simulator translate *or* physically walking into a slope on Quest) the whole rig rides up smoothly.
   3. Fall catch: > 6 m below terrain, or stuck submerged > 2 s → reset to the last safe standing spot.
 - Teleport across the entire terrain; XR Interaction Simulator auto-enabled in the editor for headset-free play.
+- **Desk testing without a headset:** turn **Error Pause** off in the Console toolbar. With no headset, Meta's OpenXR feature logs `ErrorFormFactorUnavailable` on the first frame; with Error Pause on, Play mode freezes on frame 1 before the simulator can spawn, and looks unplayable.
 
 ---
 

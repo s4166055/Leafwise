@@ -15,12 +15,14 @@ namespace Forage
         public FirePit firePit;
         public Transform drillTip;          // tip of the drill stick
         public Transform boardCenter;       // where the tip must be pressed
-        public float boardRadius = 0.14f;
+        // Widened after headset testing: scrubbing fast while holding the tip
+        // inside 14 cm kept slipping off the board, and each slip stalled the heat.
+        public float boardRadius = 0.20f;
 
         [Header("Tuning")]
         public float minSpeed = 0.35f;       // m/s of tip motion to count as drilling
         public float heatPerSecondAtFullSpeed = 16f;
-        public float fullSpeed = 1.6f;
+        public float fullSpeed = 1.2f;
 
         XRGrabInteractable _grab;
         Vector3 _lastTipPos;

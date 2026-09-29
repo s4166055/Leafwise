@@ -11,7 +11,7 @@ namespace Forage
     public class CampsiteBuilder : MonoBehaviour
     {
         [Header("Counts")]
-        public int drySticks = 8;
+        public int drySticks = 20;   // was 8: too few to find, and a fire eats one every 150 s
         public int wetSticks = 4;
         public int tinderBundles = 4;
 

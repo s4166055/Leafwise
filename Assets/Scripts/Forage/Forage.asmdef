@@ -4,6 +4,7 @@
     "references": [
         "Unity.XR.Interaction.Toolkit",
         "Unity.XR.CoreUtils",
+        "Unity.XR.Hands",
         "Unity.AI.Navigation",
         "Unity.InputSystem",
         "Unity.TextMeshPro",

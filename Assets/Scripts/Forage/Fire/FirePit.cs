@@ -92,6 +92,7 @@ namespace Forage
                         stickCount = 0;
                         tinderCount = 0;
                         wetStickCount = 0;
+                        ClearBurntFuel();
                         ForageEvents.RaiseSignal("fire-out");
                     }
                     break;
@@ -161,12 +162,26 @@ namespace Forage
             var grab = item.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
             if (grab != null) grab.enabled = false;
 
-            // pile items loosely in the ring
+            // pile items loosely in the ring; capped so a well-fed fire does not
+            // stack its wood half a metre into the air
             item.transform.position = transform.position + new Vector3(
-                Random.Range(-0.12f, 0.12f), 0.08f + stickCount * 0.03f, Random.Range(-0.12f, 0.12f));
+                Random.Range(-0.12f, 0.12f), 0.08f + Mathf.Min(stickCount, 8) * 0.03f, Random.Range(-0.12f, 0.12f));
             item.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360f), Random.Range(-10f, 10f));
 
+            Debug.Log($"[Forage] Fire: {item.kind} added (tinder {tinderCount}, sticks {stickCount}, {state})");
             ForageEvents.RaiseSignal("fuel-added");
+        }
+
+        /// <summary>
+        /// The counts reset when the fire dies, so the old pile must go too;
+        /// otherwise a full-looking ring sits there while the pit asks for fuel.
+        /// </summary>
+        void ClearBurntFuel()
+        {
+            foreach (var used in GetComponentsInChildren<SurvivalItem>())
+                Destroy(used.gameObject);
+            warmthRadius = 3.5f;
+            _fireScale = 1f;
         }
 
         void Ignite()
@@ -265,8 +280,21 @@ namespace Forage
             ForageEvents.RaiseHint(id);
         }
 
-        void OnTriggerEnter(Collider other)
+        void OnTriggerEnter(Collider other) => TryAccept(other);
+
+        // Enter alone missed the natural VR move: lower the stick into the ring,
+        // then let go. It was held when it entered, so it was skipped, and
+        // releasing it inside raises no second Enter, so the pit never counted
+        // any fuel. Stay picks it up the moment it is let go.
+        void OnTriggerStay(Collider other) => TryAccept(other);
+
+        void TryAccept(Collider other)
         {
+            // Enter and Stay for the same item can both be queued in one physics
+            // step. The first acceptance disables its colliders, but the other
+            // event is already queued, so skip events from a dead collider or one
+            // bundle of tinder counts twice (caught by the PlayMode fire test).
+            if (!other.enabled) return;
             var item = other.GetComponentInParent<SurvivalItem>();
             if (item == null) return;
             if (item.kind != ItemKind.Tinder && item.kind != ItemKind.Stick) return;

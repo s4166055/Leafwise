@@ -173,17 +173,41 @@ namespace Forage
             return go;
         }
 
+        static Material _flintMaterial;
+
+        /// <summary>
+        /// Real flint is dark and glassy, which also sets it apart from the pale
+        /// ring stones it sits beside. Same shader as the rock material, so no
+        /// new variant has to survive shader stripping on the Quest build.
+        /// </summary>
+        static Material FlintMaterial
+        {
+            get
+            {
+                if (_flintMaterial == null)
+                {
+                    _flintMaterial = new Material(ForageAssets.Instance.stone) { name = "Flint (runtime)" };
+                    _flintMaterial.SetColor("_BaseColor", new Color(0.16f, 0.17f, 0.21f));
+                    _flintMaterial.SetFloat("_Smoothness", 0.82f);
+                }
+                return _flintMaterial;
+            }
+        }
+
         public static GameObject FlintStone(int seed)
         {
             var go = new GameObject("FlintStone");
-            var mesh = NatureFactory.SmoothBlob(0.055f, 1, 0.18f, seed, new Vector3(1.1f, 0.75f, 0.9f));
+            // Bigger than it was (0.055): at arm's length an 11 cm grey ball on
+            // grey ground next to a ring of grey rocks was simply not findable.
+            const float radius = 0.07f;
+            var mesh = NatureFactory.SmoothBlob(radius, 1, 0.18f, seed, new Vector3(1.1f, 0.75f, 0.9f));
             var vis = new GameObject("Stone");
             vis.transform.SetParent(go.transform, false);
             vis.AddComponent<MeshFilter>().sharedMesh = mesh;
-            vis.AddComponent<MeshRenderer>().sharedMaterial = ForageAssets.Instance.stone;
+            vis.AddComponent<MeshRenderer>().sharedMaterial = FlintMaterial;
 
             var col = go.AddComponent<SphereCollider>();
-            col.radius = 0.055f;
+            col.radius = radius;
 
             MakeGrabbable(go, ItemKind.Flint, 0.5f);
             go.AddComponent<FlintStone>();
