@@ -1,0 +1,34 @@
+{
+    "name": "Forage.Editor",
+    "rootNamespace": "Forage.EditorTools",
+    "references": [
+        "Forage",
+        "Unity.XR.Interaction.Toolkit",
+        "Unity.XR.CoreUtils",
+        "Unity.AI.Navigation",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "Unity.ProBuilder",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "UnityEngine.UI",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor",
+        "Unity.XR.OpenXR",
+        "Unity.XR.OpenXR.Editor",
+        "com.IvanMurzak.Unity.MCP.Runtime",
+        "com.IvanMurzak.Unity.MCP.Editor",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
