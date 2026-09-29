@@ -94,11 +94,18 @@ namespace Forage
             for (int i = 0; i < 12; i++)
             {
                 bool safe = i % 3 != 2; // two thirds safe red, one third toxic white
-                var cluster = ItemFactory.BerryCluster(forest.seed + 600 + i, safe);
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = 8f + (float)rand.NextDouble() * 45f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+
+                // Choose the spot BEFORE creating the cluster. This used to create
+                // first and then `continue` when the spot was too close to the
+                // pond - leaving that cluster at the default (0,0,0), which is
+                // 3.15 m under the camp's ground. It then fell through the world
+                // every session (found at y = -152 at terminal velocity).
                 if (Vector2.Distance(new Vector2(x, z), forest.pondCenter) < forest.pondRadius + 1f) continue;
+
+                var cluster = ItemFactory.BerryCluster(forest.seed + 600 + i, safe);
                 PlaceOnGround(cluster.transform, x, z, forest, 0.10f);
             }
         }

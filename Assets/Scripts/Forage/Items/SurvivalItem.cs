@@ -24,6 +24,17 @@ namespace Forage
         /// <summary>How far below the ground counts as "lost out of the world".</summary>
         const float LostBelowGround = 10f;
 
+        /// <summary>
+        /// How many items have had to be rescued this session. The net keeps the
+        /// game playable, but a rescue always means a placement or physics bug,
+        /// and a silent fix would hide it - so this is exposed for the tests,
+        /// which assert it stays at zero.
+        /// </summary>
+        public static int RescueCount { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetRescueCount() => RescueCount = 0;
+
         Vector3 _lastGoodPosition;
         float _nextCheck;
 
@@ -64,7 +75,9 @@ namespace Forage
                 ? _lastGoodPosition
                 : new Vector3(p.x, ground + 0.3f, p.z);
 
-            Debug.Log($"[Forage] {kind} fell out of the world and was recovered to {transform.position}.");
+            RescueCount++;
+            Debug.LogWarning($"[Forage] {kind} '{name}' fell out of the world and was recovered to " +
+                             $"{transform.position}. This is a placement or physics bug - see RescueCount.");
         }
     }
 }

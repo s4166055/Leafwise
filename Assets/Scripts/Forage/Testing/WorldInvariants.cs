@@ -220,6 +220,13 @@ namespace Forage.Testing
                     r.Check(a.PlacementSatisfied, a.GetType().Name + " placed in its habitat",
                             "spawn zone " + a.SpawnZone);
 
+            // The recovery net keeps a lost item playable, which also hides the
+            // bug that lost it. Any rescue at all is a failure here: it caught a
+            // berry cluster left at (0,0,0) - 3 m under the ground - by a
+            // create-then-skip in CampsiteBuilder.ScatterBerries.
+            r.Check(SurvivalItem.RescueCount == 0, "No item fell out of the world",
+                    SurvivalItem.RescueCount + " rescued by the recovery net");
+
             r.Section("Animals sit on the ground");
             foreach (var a in Object.FindObjectsByType<Animal>(FindObjectsSortMode.None))
             {
