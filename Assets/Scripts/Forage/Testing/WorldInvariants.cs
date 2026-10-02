@@ -168,6 +168,30 @@ namespace Forage.Testing
                     "Fish and crabs populate the pond",
                     life == null ? "no PondLife" : life.GetComponentsInChildren<MeshRenderer>(true).Length + " creatures");
 
+            r.Section("Water, bucket and fish");
+            var waterBody = Object.FindFirstObjectByType<WaterBody>();
+            r.Check(waterBody != null, "Pond has physical water (waves, buoyancy, current)");
+            var bucket = Object.FindFirstObjectByType<Bucket>();
+            r.Check(bucket != null, "A bucket exists");
+            if (bucket != null)
+            {
+                var bp = bucket.transform.position;
+                r.Check(new Vector2(bp.x, bp.z).magnitude < forest.campRadius, "Bucket starts inside the camp clearing",
+                        $"{new Vector2(bp.x, bp.z).magnitude:F1} m from camp centre");
+                float bGround = forest.HeightAt(bp.x, bp.z);
+                r.Check(bp.y > bGround - 0.1f && bp.y < bGround + 0.6f, "Bucket rests on the ground",
+                        $"y {bp.y:F2}, ground {bGround:F2}");
+            }
+            var stand = Object.FindFirstObjectByType<BucketStand>();
+            float standDist = stand != null && pit != null ? Vector3.Distance(stand.transform.position, pit.transform.position) : -1f;
+            r.Check(stand != null && stand.Socket != null, "Bucket stand with a socket exists");
+            r.Check(standDist > 0f && standDist < 1.3f, "Bucket stand is beside the fire pit (within its heat)",
+                    $"{standDist:F2} m");
+            var fishes = Object.FindObjectsByType<FishAI>(FindObjectsSortMode.None);
+            r.Check(fishes.Length >= 5, "Pond fish are alive (FishAI)", fishes.Length + " fish");
+            r.Check(fishes.All(f => !f.GetComponent<Rigidbody>().isKinematic),
+                    "Fish are dynamic bodies (never frozen kinematic)");
+
             r.Section("Habitat zones");
             r.Check(Habitat.ZoneAt(0f, 0f) == Habitat.Zone.Camp, "Origin classifies as the Camp zone",
                     Habitat.ZoneAt(0f, 0f).ToString());

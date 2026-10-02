@@ -72,11 +72,13 @@ namespace Forage
             for (int i = 0; i < 12; i++)
             {
                 bool safe = i % 3 != 2; // two thirds safe red, one third toxic white
-                var cluster = ItemFactory.BerryCluster(forest.seed + 600 + i, safe);
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = 8f + (float)rand.NextDouble() * 45f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+                // decide BEFORE creating it: a skipped cluster used to be left at the
+                // world origin, underground, falling forever
                 if (Vector2.Distance(new Vector2(x, z), forest.pondCenter) < forest.pondRadius + 1f) continue;
+                var cluster = ItemFactory.BerryCluster(forest.seed + 600 + i, safe);
                 cluster.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.06f, z);
             }
         }
@@ -189,12 +191,36 @@ namespace Forage
             var pot = ItemFactory.Pot();
             pot.transform.position = pitPos + new Vector3(-0.9f, 0.25f, 0.3f);
 
+            BuildBucketStation(forest, pitPos);
+
             // two flint stones: strike them together hard near the pit for sparks
             for (int i = 0; i < 2; i++)
             {
                 var flint = ItemFactory.FlintStone(forest.seed + 950 + i);
                 flint.transform.position = pitPos + new Vector3(0.55f + i * 0.18f, 0.2f, -0.5f);
             }
+        }
+
+        /// <summary>
+        /// Bucket stand on the pit's edge (inside the fire's heat) and the bucket
+        /// beside it. Plus the drink-button handler, which lives with the camp systems.
+        /// </summary>
+        void BuildBucketStation(ForestGenerator forest, Vector3 pitPos)
+        {
+            var standPos = pitPos + new Vector3(-0.35f, 0f, -0.82f);
+            standPos.y = forest.HeightAt(standPos.x, standPos.z);
+            var standGo = new GameObject("BucketStand");
+            standGo.transform.position = standPos;
+            // face the stand toward the pit so the sign reads from the fire side
+            Vector3 toPit = pitPos - standPos; toPit.y = 0f;
+            standGo.transform.rotation = Quaternion.LookRotation(toPit.normalized);
+            standGo.AddComponent<BucketStand>().Build();
+
+            var bucketPos = pitPos + new Vector3(-1.15f, 0f, -0.6f);
+            var bucket = ItemFactory.Bucket();
+            bucket.transform.position = new Vector3(bucketPos.x, forest.HeightAt(bucketPos.x, bucketPos.z) + 0.05f, bucketPos.z);
+
+            if (GetComponent<HandDrinking>() == null) gameObject.AddComponent<HandDrinking>();
         }
 
         void ScatterGatherables(ForestGenerator forest)

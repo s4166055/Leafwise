@@ -121,7 +121,7 @@ Species are placed by searching only the zones that suit them; waterside species
 ### 5.1 Player vitals (`PlayerVitals`) — the health-bar rules
 | Stat | Decreases | Increases |
 |---|---|---|
-| **Hydration** | 4.5/min passively; ×2.5 while sick | Drinking from the pot: +45 |
+| **Hydration** | 4.5/min passively; ×2.5 while sick; **×3 while untreated water is in your gut** | Pot: +45 · bucket serving (¼ bucket): +30 · cupped-hand pond sip: +9 (untreated) |
 | **Food (energy)** | 3/min passively | Safe mushroom: +30 |
 | **Warmth** | 5/min at night away from fire | +25/min near a lit fire (radius 3.5→5.5 m with fire size) |
 | **Health** | Drains while any stat is 0 or while sick; instant hits: poison −15, Eastern Brown bite −16, Python bite −6 | Recovers ~2.5/min when everything is fine. **Floor = 5: weakness, never death** (education-first) |
@@ -556,6 +556,51 @@ The 64 world invariants live once, in `Forage.Testing.WorldInvariants`, shared b
 ```
 
 Exit code 0 = all passed. Prefer batch mode on this machine: during an in-editor PlayMode run the security product locked `OpenXRPackageSettings.asset` mid-reserialisation, Unity raised a modal *"Moving file failed"*, and the run stalled until dismissed. Batch mode cannot show dialogs.
+
+---
+
+## 15. Water update — bucket, physical pond, drink button, living fish
+
+### 15.1 Bucket (`Water/Bucket.cs`, built by `ItemFactory.Bucket`)
+Low-poly wooden pail (12 staves, two metal hoops, wire handle) beside the fire pit. It is **held by the handle**, so it hangs from the hand and tilts with the wrist.
+
+| Action | How it works |
+|---|---|
+| **Fill** | Dip the rim under the pond surface → fills at 65 %/s. Pond water is always *untreated* (brown tint + floating dirt specks). |
+| **Spill (percentage)** | The water surface stays level with gravity. It crests the rim when `fill·H + r·tan(tilt) > H`, so a brim-full bucket spills at any tilt, a half-full one at ~45°. Flow above the rim is a weir law (∝ excess^1.5); upturned it empties in about a second. **Jerky movement sloshes too**: horizontal acceleration tilts the effective gravity (capped at 35°), so sudden starts and stops on the walk back cost water. A spill stream, trickle sound and Scout hint follow. |
+| **Boil** | Seat it on the **bucket stand** (hearth stone on the pit's edge, `Water/BucketStand.cs`, a socket that only accepts the bucket). While the fire is *Burning* it boils in 8–26 s depending on fill (steam + bubbling). Taking it off part-way cools it and Scout warns. Boiled = clear water, dirt settles. |
+| **Drink** | Raise the rim to your mouth (0.9 s) or hold it near your face and press **B/Y**. One serving = ¼ bucket = +30 H2O. Boiled completes the *water* objective; untreated = sickness + fast drain. |
+| **Pour** | Tip it over the camp pot: ~⅛ bucket fills the pot (clean only if the bucket was boiled). |
+| **Label** | World-space readout while held/near: `Water 72% · murky — boil before drinking` / `boiling 40%` / `boiled — safe to drink` / `spilling!`. |
+
+### 15.2 Physical pond (`Water/WaterBody.cs`)
+The batched PondWater mesh can't be deformed, so its renderer is hidden and a 1,921-vertex animated surface replaces it (same material, same `Water` tag and trigger). Swell plus up to 12 expanding ripple rings from splashes, hands and fish. Every Rigidbody inside gets **buoyancy** from its submerged share against the local wave height (wood floats, flint and the metal pot sink, the bucket floats less the fuller it is), water drag, and a slow **circulating current**, so floating sticks drift. Splash droplets and a synthesized splash sound play on entry.
+
+### 15.3 Drink button and thirst (`Water/HandDrinking.cs`, `Core/PlayerHands.cs`)
+**B / Y** (secondary face button; simulator's secondary button; **J** at a desk): a container held near the face is drunk first. Otherwise, with that hand in the pond, it takes a **cupped-hand sip**: +9 H2O now, but untreated water adds 40 s of **×3 hydration drain** (stacking to 240 s). Past 150 s stacked you also get sick. A brown vignette shows while it lasts.
+
+### 15.4 Living fish (`Animals/FishAI.cs`)
+Root cause of the old bug: fish were *kinematic* while swimming, and `XRGrabInteractable` restores the pre-grab kinematic/gravity flags on release, so a dropped fish froze in mid-air. Fish are now always dynamic bodies, and the AI re-asserts physics flags every step.
+
+| State | Behaviour |
+|---|---|
+| Swimming | Wanders below the surface, tail beat scales with speed, darts away from hands in the water, carried by the current |
+| Held | Thrashes in bursts (tail + body), buzzes the holding controller, after a 1.5 s grace can slip free when held low over the water |
+| Flopping | Out of water: hop-and-twist flops, mostly vertical, biased back toward the pond when close; tires over ~75 s and dies |
+| Back in water | Dropped, thrown or flopped in → swims off (Scout: "it got away!") |
+| Dead / cooked | Normal food item (FishItem / Cookable); cooking a live fish kills it |
+
+### 15.5 Items no longer roll away (`Items/GroundSettle.cs`)
+Thirty seconds into a session, 35 of 76 loose items were still moving: all four tinder bundles had rolled 40–60 m out of camp, the flints ~24 m, the pot ~42 m. Two causes. (1) Round colliders: tinder, leaf bundles, flint and berries were spheres; the pot's capsule was shorter than it was wide (so, a sphere); sticks were capsules lying on their side. (2) PhysX has friction but **no rolling resistance**, and the camp clearing only flattens fully at its centre.
+
+Fixes: flat **box colliders** for sticks, branches, tinder, leaves, flint, berries, pot and drill; a grippy physics material; and `GroundSettle` on every grabbable. While an item touches static ground and isn't held, it damps spin and travel, and puts the item to sleep once it's nearly still. Throws and floating are untouched. It also caps overlap correction (`maxDepenetrationVelocity` 2 m/s), because the player's body landing on a stick used to fling it 40 m up. Separately, berry clusters skipped for being too close to the pond were left at the world origin, underground; placement is now decided before creating them. Result: 0 of 43 loose items moving after 37 s, and tinder, flint and pot stay where they spawn.
+
+### 15.6 Tests
+`Assets/Tests/PlayMode/WaterAndFishPlayModeTests.cs` covers 10 behaviours: items coming to rest, bucket spawn/stand placement, scooping, spill-to-rim against the analytic angle, pouring into the pot, boiling only while the fire burns, boiled vs raw drinking with the measured ×3 drain rate, the drink button with a hand at the waterline, buoyancy and drift, and the full fish cycle (held → released → falls and flops → back in water swims). WorldInvariants gained 8 checks for the same systems.
+
+Two bugs were caught by these tests before they shipped. (1) A freshly spawned interpolated Rigidbody ignores a transform move made in its creation frame, so the bucket spawned at the world origin, underground, and fell forever. Interpolation is now enabled in `Start`. (2) A near-empty clamp zeroed the first frames of scooping at headset frame rates (<2 %/frame), so the bucket could never fill on a Quest.
+
+**Unrelated fix needed to compile:** `Editor/Forage/SkillExporter.cs` is now wrapped in `#if UNITY_MCP_READY`. The pulled manifest bump of the IvanMurzak Unity-MCP package (0.88 → 0.93.2) left that define unset, which disables the package's assemblies and broke the whole `Forage.Editor` assembly.
 
 ---
 

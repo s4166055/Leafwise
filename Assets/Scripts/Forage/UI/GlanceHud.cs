@@ -103,7 +103,7 @@ namespace Forage
             }
             _changeTimer -= Time.deltaTime;
 
-            bool show = anyLow || _changeTimer > 0f || Time.timeSinceLevelLoad < introSeconds || vitals.isSick;
+            bool show = anyLow || _changeTimer > 0f || Time.timeSinceLevelLoad < introSeconds || vitals.isSick || vitals.HasUntreatedWater;
             _group.alpha = Mathf.MoveTowards(_group.alpha, show ? 0.95f : 0f, Time.deltaTime * 2.5f);
 
             // --- lazy follow: low and centered, drifting after the head ---

@@ -4,7 +4,8 @@ using UnityEngine;
 namespace Forage
 {
     /// <summary>
-    /// Life inside the pond: small fish cruising below the surface and crabs
+    /// Life inside the pond: fish (each driven by its own <see cref="FishAI"/>:
+    /// swimming, struggling when caught, flopping on land) and crabs
     /// scuttling on the bottom — visible through the transparent water.
     /// </summary>
     public class PondLife : MonoBehaviour
@@ -38,16 +39,10 @@ namespace Forage
 
             for (int i = 0; i < fishCount; i++)
             {
+                // fish simulate themselves (FishAI) — PondLife only spawns them
                 var fish = BuildFish(i, rand);
-                _critters.Add(new Swimmer
-                {
-                    tf = fish.transform,
-                    target = RandomPoint(rand, false),
-                    speed = 0.35f + (float)rand.NextDouble() * 0.35f,
-                    wigglePhase = (float)rand.NextDouble() * 10f,
-                    onFloor = false
-                });
                 fish.transform.position = RandomPoint(rand, false);
+                fish.GetComponent<Rigidbody>().position = fish.transform.position;
             }
 
             for (int i = 0; i < crabCount; i++)
@@ -131,33 +126,38 @@ namespace Forage
             tail.AddComponent<MeshFilter>().sharedMesh = LowPolyFactory.Cone(s * 0.45f, s * 0.7f, 4);
             tail.AddComponent<MeshRenderer>().sharedMaterial = fishMat;
 
-            // fishing: reach into the water and grab it!
-            var col = go.AddComponent<SphereCollider>();
-            col.radius = s * 1.9f;
+            // fishing: reach into the water and grab it! A body-shaped capsule
+            // (the old sphere was ~2x the fish and snagged on the pond floor)
+            var col = go.AddComponent<CapsuleCollider>();
+            col.direction = 2;
+            col.radius = s * 0.75f;
+            col.height = s * 3.6f;
+            col.center = new Vector3(0f, 0f, -s * 0.3f);
+            // a real dynamic body at all times — never kinematic. XRI restores the
+            // pre-grab kinematic flag on release, which is what used to leave a
+            // dropped fish frozen in mid-air.
             var rb = go.AddComponent<Rigidbody>();
-            rb.isKinematic = true; // PondLife drives it while swimming
+            rb.isKinematic = false;
+            rb.useGravity = false;
+            rb.mass = 0.4f + s * 2f;
             var grab = go.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
             grab.movementType = UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable.MovementType.VelocityTracking;
             grab.throwOnDetach = true;
+            grab.useDynamicAttach = true;
             var item = go.AddComponent<SurvivalItem>();
             item.kind = ItemKind.Fish;
             go.AddComponent<FishItem>();
             var cook = go.AddComponent<Cookable>();
             cook.cookSeconds = 12f;
 
-            var self = this;
-            grab.selectEntered.AddListener(_ =>
-            {
-                self.OnFishCaught(go.transform);
-                rb.isKinematic = false;
-                ProceduralAudio.PlayAt(go.transform.position, ProceduralAudio.Chirp(1), 0.4f);
-                Haptics.Pulse(0.5f, 0.2f);
-                ForageEvents.RaiseSignal("fish-caught");
-            });
+            var ai = go.AddComponent<FishAI>();
+            ai.pondCenter = pondCenter;
+            ai.pondRadius = pondRadius;
+            ai.cruiseSpeed = 0.35f + (float)rand.NextDouble() * 0.35f;
             return go;
         }
 
-        /// <summary>Stop simulating a fish that has been grabbed.</summary>
+        /// <summary>Kept for API compatibility: fish are simulated by FishAI, not by PondLife.</summary>
         public void OnFishCaught(Transform fish)
         {
             _critters.RemoveAll(c => c.tf == fish);

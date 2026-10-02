@@ -22,8 +22,17 @@ namespace Forage
         public float warmthDecayCold = 5.0f;   // when cold (night / no fire nearby)
         public float warmthRecoverFire = 25f;  // when near a lit fire
 
+        [Header("Untreated water")]
+        [Tooltip("Hydration drains this many times faster while untreated water is in your gut.")]
+        public float untreatedDrainMultiplier = 3f;
+        [Tooltip("Seconds of fast drain added per raw sip from the pond.")]
+        public float untreatedSecondsPerSip = 40f;
+        [Tooltip("If the fast-drain window stacks past this, you also get sick.")]
+        public float untreatedSickThreshold = 150f;
+
         [Header("State (read-only)")]
         public bool isSick;
+        public float untreatedUntil;
         public bool nearFire;
         public bool isNight;
 
@@ -33,11 +42,19 @@ namespace Forage
 
         float _sickUntil;
 
+        /// <summary>True while untreated water is making you lose fluid faster.</summary>
+        public bool HasUntreatedWater => Time.time < untreatedUntil;
+        public float UntreatedSecondsLeft => Mathf.Max(0f, untreatedUntil - Time.time);
+
+        /// <summary>Current hydration drain multiplier (sickness and untreated water stack).</summary>
+        public float HydrationDrainMultiplier =>
+            (isSick ? 2.5f : 1f) * (HasUntreatedWater ? untreatedDrainMultiplier : 1f);
+
         void Update()
         {
             float dtMin = Time.deltaTime / 60f;
 
-            hydration = Mathf.Max(0, hydration - hydrationDecay * dtMin * (isSick ? 2.5f : 1f));
+            hydration = Mathf.Max(0, hydration - hydrationDecay * dtMin * HydrationDrainMultiplier);
             energy = Mathf.Max(0, energy - energyDecay * dtMin);
 
             if (nearFire)
@@ -69,9 +86,32 @@ namespace Forage
             if (contaminated)
             {
                 MakeSick(90f);
+                AddUntreated(60f);
                 Harmed?.Invoke("drank-dirty-water");
             }
             Changed?.Invoke(this);
+        }
+
+        /// <summary>
+        /// A cupped-hand sip straight from the pond. It DOES refill hydration
+        /// right now, but untreated water makes you lose fluid faster for a
+        /// while afterwards — and stacking too many sips makes you sick.
+        /// </summary>
+        public void DrinkRaw(float amount)
+        {
+            hydration = Mathf.Min(100, hydration + amount);
+            AddUntreated(untreatedSecondsPerSip);
+            if (UntreatedSecondsLeft > untreatedSickThreshold && !isSick)
+            {
+                MakeSick(60f);
+                Harmed?.Invoke("drank-too-much-untreated-water");
+            }
+            Changed?.Invoke(this);
+        }
+
+        void AddUntreated(float seconds)
+        {
+            untreatedUntil = Mathf.Min(Mathf.Max(Time.time, untreatedUntil) + seconds, Time.time + 240f);
         }
 
         public void Eat(float amount, bool poisonous)

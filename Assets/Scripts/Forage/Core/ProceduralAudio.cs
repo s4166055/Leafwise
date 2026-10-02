@@ -198,6 +198,51 @@ namespace Forage
             });
         }
 
+        /// <summary>Splash: a bright noise burst with a falling "plop" underneath.</summary>
+        public static AudioClip Splash()
+        {
+            float lp = 0f;
+            return Bake("splash", 0.6f, (i, t) =>
+            {
+                lp = Mathf.Lerp(lp, Noise(), 0.35f);
+                float hiss = lp * Mathf.Exp(-t * 7f) * 0.7f;
+                float plop = Mathf.Sin(2f * Mathf.PI * (380f - t * 420f) * t) * Mathf.Exp(-t * 18f) * 0.45f;
+                return hiss + plop;
+            });
+        }
+
+        /// <summary>Pouring / spilling trickle (looping).</summary>
+        public static AudioClip Pour()
+        {
+            float lp = 0f, lp2 = 0f;
+            return Bake("pour", 2f, (i, t) =>
+            {
+                float n = Noise();
+                lp = Mathf.Lerp(lp, n, 0.28f);
+                lp2 = Mathf.Lerp(lp2, n, 0.05f);
+                float gurgle = 0.7f + 0.3f * Mathf.Sin(t * 37f) * Mathf.Sin(t * 11f + 1f);
+                return (lp - lp2) * gurgle * 0.9f;
+            }, loop: true);
+        }
+
+        /// <summary>Rolling-boil bubbling (looping).</summary>
+        public static AudioClip Bubbles()
+        {
+            var r = new System.Random(99);
+            float next = 0f, start = -1f, freq = 300f;
+            return Bake("bubbles", 3f, (i, t) =>
+            {
+                if (t >= next)
+                {
+                    start = t;
+                    freq = 250f + (float)r.NextDouble() * 500f;
+                    next = t + 0.02f + (float)r.NextDouble() * 0.09f;
+                }
+                float age = t - start;
+                return Mathf.Sin(2f * Mathf.PI * (freq + age * 2500f) * age) * Mathf.Exp(-age * 45f) * 0.5f;
+            }, loop: true);
+        }
+
         // ---------- play helpers ----------
 
         public static AudioSource Loop(Transform parent, AudioClip clip, float volume, float spatial = 1f, float range = 12f)

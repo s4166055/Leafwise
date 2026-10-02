@@ -41,6 +41,12 @@ namespace Forage
             { "rabbit-scared", new[]{ "Too fast — you startled it.", "Move SLOWLY near animals. Walk calmly and the rabbit may come to you." } },
             { "deer-spooked", new[]{ "There it goes…", "Deer spook at speed and close approach. Watch from 5+ meters, moving gently." } },
             { "bear-dont-run", new[]{ "B-bear! Don't run. DON'T run.", "Face it, look BIG, and back away SLOWLY. Running triggers a chase you cannot win." } },
+            { "water-scooped", new[]{ "Murky stuff… I wouldn't sip that yet.", "Pond water carries germs. BOIL it by the fire before you drink it." } },
+            { "bucket-filled", new[]{ "Got water! Looks a bit murky though.", "Carry it back LEVEL, set it on the stand by the fire and let it BOIL before drinking." } },
+            { "bucket-spilling", new[]{ "Careful — it's sloshing out!", "Keep the bucket UPRIGHT and move smoothly. A brim-full bucket spills at the slightest tilt." } },
+            { "bucket-needs-fire", new[]{ "The bucket's set… but it's stone cold.", "The stand only boils water while the campfire is BURNING. Light the fire first." } },
+            { "drank-raw-water", new[]{ "That tasted… earthy.", "Raw pond water makes you lose fluid FASTER afterwards. Boil a bucketful instead." } },
+            { "fish-escaped", new[]{ "Splash — it got away!", "Fish are slippery. Grip it and carry it AWAY from the water before you let go." } },
             { "shelter-branches-first", new[]{ "Leaves need something to rest on.", "Lean BRANCHES on the frame first — then cover them with leaf bundles." } },
         };
 
@@ -48,7 +54,7 @@ namespace Forage
         {
             { "explore", "Have a wander! Get a feel for the clearing, the pond to the north-east, and the woods." },
             { "fire", "Gather tinder + dry sticks into the stone ring, then drill fast on the fireboard — or strike the two flint stones together hard, 2–3 times." },
-            { "water", "Dip the pot in the pond, boil it by the fire until it bubbles clear, then drink." },
+            { "water", "Fill the bucket at the pond, carry it back level, set it on the stand by the burning fire to boil, then drink (raise it to your mouth or press B/Y)." },
             { "forage", "Pick a mushroom and read its tag. Brown or golden ones are your friends. Pale ones… are not." },
             { "shelter", "Lean 4 branches against the shelter frame at camp, then pile 3 leaf bundles on top." },
             { "wildlife", "Approach the rabbit or deer slowly — or freeze when a snake rears up. Calm wins." },

@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.ivanmurzak.unity.mcp": "0.93.2",
     "com.ivanmurzak.unity.mcp.animation": "1.2.32",
     "com.ivanmurzak.unity.mcp.navigation": "1.0.17",
     "com.ivanmurzak.unity.mcp.probuilder": "1.2.31",

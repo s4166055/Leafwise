@@ -12,7 +12,8 @@ namespace Forage
         Branch,      // shelter building
         LeafBundle,  // shelter building
         Flint,       // strike two together for sparks
-        Fish         // caught from the pond; cook it!
+        Fish,        // caught from the pond; cook it!
+        Bucket       // carries pond water back to camp
     }
 
     /// <summary>Marks a grabbable survival item and its properties.</summary>

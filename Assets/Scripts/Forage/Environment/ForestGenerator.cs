@@ -194,6 +194,13 @@ namespace Forage
             col.center = Vector3.up * 0.3f;
             go.tag = "Water";
 
+            // physical water: animated waves + ripples, buoyancy, drag, current, splashes
+            var body = go.AddComponent<WaterBody>();
+            body.center = pondCenter;
+            body.radius = pondRadius * 0.92f;
+            body.surfaceY = WaterLevel;
+            body.waterMat = waterMat;
+
             // life under the surface, visible through the transparent water
             var life = new GameObject("PondLife").AddComponent<PondLife>();
             life.transform.SetParent(_propsRoot, false);

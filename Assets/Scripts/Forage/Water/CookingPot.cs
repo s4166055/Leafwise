@@ -131,18 +131,7 @@ namespace Forage
                     _waterSurface.transform.localScale = Vector3.one * Mathf.Lerp(1f, 0.55f, sip);
                 }
                 if (_drinkTimer >= drinkHoldSeconds)
-                {
-                    gm.vitals.Drink(45f, contaminated);
-                    ProceduralAudio.PlayAt(transform.position, ProceduralAudio.Gulp(), 0.9f);
-                    ScreenFeedback.Drink();
-                    Haptics.Pulse(0.25f, 0.12f);
-                    if (!contaminated)
-                    {
-                        gm.CompleteObjective("water");
-                        ForageEvents.RaiseSignal("drank-clean-water");
-                    }
-                    SetState(PotState.Empty);
-                }
+                    FinishDrink(gm, contaminated);
             }
             else
             {
@@ -152,6 +141,56 @@ namespace Forage
                     _waterSurface.transform.localScale = Vector3.one;
                 }
                 _drinkTimer = 0f;
+            }
+        }
+
+        void FinishDrink(GameManager gm, bool contaminated)
+        {
+            gm.vitals.Drink(45f, contaminated);
+            ProceduralAudio.PlayAt(transform.position, ProceduralAudio.Gulp(), 0.9f);
+            if (contaminated) ScreenFeedback.DrinkUntreated(); else ScreenFeedback.Drink();
+            Haptics.Pulse(0.25f, 0.12f);
+            if (!contaminated)
+            {
+                gm.CompleteObjective("water");
+                ForageEvents.RaiseSignal("drank-clean-water");
+            }
+            else ForageEvents.RaiseSignal("drank-dirty-water");
+            SetState(PotState.Empty);
+        }
+
+        /// <summary>Drink-button path: drink at once if the pot is held near the face.</summary>
+        public bool TryDrinkNow(float maxDistance = 0.55f)
+        {
+            var gm = GameManager.Instance;
+            if (gm == null || gm.playerHead == null || gm.vitals == null) return false;
+            if (state != PotState.DirtyWater && state != PotState.CleanWater) return false;
+            if (_grab == null || !_grab.isSelected) return false;
+            if (Vector3.Distance(transform.position, gm.playerHead.position) > maxDistance) return false;
+            FinishDrink(gm, state == PotState.DirtyWater);
+            return true;
+        }
+
+        float _received;
+
+        /// <summary>
+        /// Water poured in from the bucket (amount = fraction of a bucket).
+        /// About an eighth of a bucket fills the pot. Any untreated water
+        /// makes the whole pot untreated again.
+        /// </summary>
+        public void ReceiveWater(float amount, bool clean)
+        {
+            if (state == PotState.Boiling) { if (!clean) SetState(PotState.DirtyWater); return; }
+            if (state == PotState.CleanWater && clean) return;
+            if (state == PotState.CleanWater && !clean) { SetState(PotState.DirtyWater); return; }
+            if (state == PotState.DirtyWater) return;
+
+            _received += amount;
+            if (_received >= 0.12f)
+            {
+                _received = 0f;
+                SetState(clean ? PotState.CleanWater : PotState.DirtyWater);
+                ForageEvents.RaiseSignal("pot-filled-from-bucket");
             }
         }
 
@@ -196,6 +235,7 @@ namespace Forage
             if (transform.position.y > scoopMaxY) return; // must actually dip it down to the water
             SetState(PotState.DirtyWater);
             ForageEvents.RaiseSignal("water-scooped");
+            ForageEvents.RaiseHint("water-scooped");
         }
     }
 }
