@@ -190,6 +190,8 @@ namespace Forage
             col.center = new Vector3(0, stemH * 0.7f, 0);
 
             MakeGrabbable(go, ItemKind.Mushroom, 0.05f);
+            go.GetComponent<Rigidbody>().isKinematic = true;
+            go.GetComponent<XRGrabInteractable>().movementType = XRBaseInteractable.MovementType.Kinematic;
 
             var shroom = go.AddComponent<Mushroom>();
             shroom.speciesName = species;
