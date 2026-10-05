@@ -10,7 +10,7 @@
 - Dangerous Snake 
 
 ## Project Setup (TBC)
-- Unity 6.5 (6000.5.5f1)
+- Unity 6.3 (6000.3.21f1)
 - target XR device;
 - SDK and package names and versions;
 - required modules and build platform;
