@@ -105,6 +105,64 @@ namespace Forage
                     Vector3.Distance(gm.PlayerPosition, transform.position) < warmthRadius;
 
             _hintCooldown -= Time.deltaTime;
+            CheckBurns(gm);
+        }
+
+        [Header("Burns")]
+        public float tooCloseDistance = 0.8f;     // feet on the ring stones: warning
+        public float standInFireDistance = 0.5f;  // standing in the flames: damage
+        public float burnDamagePerSecond = 8f;
+        public float handBurnDamagePerSecond = 4f;
+
+        float _burnTick, _burnSayCooldown, _tooCloseCooldown;
+        readonly System.Collections.Generic.List<PlayerHands.Point> _hands =
+            new System.Collections.Generic.List<PlayerHands.Point>();
+
+        /// <summary>
+        /// A burning fire hurts. Stepping onto the ring earns a warning; standing
+        /// in the flames, or holding a hand in them, takes health every half
+        /// second (red flash and rumble via PlayerVitals.Harmed). Health never
+        /// drops below the game's floor, so this teaches without killing.
+        /// </summary>
+        void CheckBurns(GameManager gm)
+        {
+            _burnSayCooldown -= Time.deltaTime;
+            _tooCloseCooldown -= Time.deltaTime;
+            _burnTick -= Time.deltaTime;
+            if (!IsLit || gm == null || gm.vitals == null) return;
+
+            Vector3 c = transform.position;
+            Vector3 head = gm.PlayerPosition;
+            float body = Vector2.Distance(new Vector2(head.x, head.z), new Vector2(c.x, c.z));
+
+            // hands in the flames: close to the middle and below the flame tips
+            bool handInFlames = false;
+            PlayerHands.Get(_hands);
+            float flameTop = c.y + 0.45f * _fireScale;
+            foreach (var h in _hands)
+            {
+                float hd = Vector2.Distance(new Vector2(h.position.x, h.position.z), new Vector2(c.x, c.z));
+                if (hd < 0.25f * _fireScale && h.position.y < flameTop && h.position.y > c.y - 0.1f)
+                    handInFlames = true;
+            }
+
+            bool standing = body < standInFireDistance;
+            if ((standing || handInFlames) && _burnTick <= 0f)
+            {
+                _burnTick = 0.5f;
+                gm.vitals.Damage((standing ? burnDamagePerSecond : handBurnDamagePerSecond) * 0.5f,
+                    standing ? "fire-burn" : "fire-hand-burn");
+                if (_burnSayCooldown <= 0f)
+                {
+                    _burnSayCooldown = 4f;
+                    ForageEvents.RaiseHint(standing ? "fire-burn" : "fire-hand-burn");
+                }
+            }
+            else if (!standing && body < tooCloseDistance && _tooCloseCooldown <= 0f)
+            {
+                _tooCloseCooldown = 10f;
+                ForageEvents.RaiseHint("fire-too-close");
+            }
         }
 
         /// <summary>Called by the drill while spinning against the fireboard. Returns true if heat was applied.</summary>

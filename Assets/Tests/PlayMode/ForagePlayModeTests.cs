@@ -151,6 +151,80 @@ namespace Forage.Tests
         }
 
         [UnityTest]
+        public IEnumerator Fire_StandingInFlamesHurts()
+        {
+            var pit = FirePit.Instance;
+            var gm = GameManager.Instance;
+            var origin = Object.FindFirstObjectByType<Unity.XR.CoreUtils.XROrigin>();
+            Assert.That(pit, Is.Not.Null);
+            Assert.That(origin, Is.Not.Null);
+
+            // light it: one tinder, one dry stick, three good strikes, short burn
+            var items = Object.FindObjectsByType<SurvivalItem>(FindObjectsSortMode.None)
+                .Where(i => !i.transform.IsChildOf(pit.transform)).ToList();
+            pit.burnSecondsPerStick = 4f;
+            pit.AddItem(items.First(i => i.kind == ItemKind.Tinder));
+            pit.AddItem(items.First(i => i.kind == ItemKind.Stick && !i.isWet));
+            for (int i = 0; i < 3; i++) pit.AddHeat(40f);
+            Assert.That(pit.IsLit, Is.True, "test setup: fire did not light");
+
+            // step into the flames
+            Vector3 home = origin.transform.position;
+            float before = gm.vitals.health;
+            Vector3 head = gm.PlayerPosition;
+            origin.transform.position += new Vector3(pit.transform.position.x - head.x, 0f,
+                                                     pit.transform.position.z - head.z);
+            float until = Time.time + 1.5f;
+            while (Time.time < until) yield return null;
+            float after = gm.vitals.health;
+
+            origin.transform.position = home;
+            until = Time.time + 6f;
+            while (pit.IsLit && Time.time < until) yield return null;   // let it burn out
+
+            Assert.That(after, Is.LessThan(before), $"standing in a burning fire did not hurt: {before} -> {after}");
+        }
+
+        [UnityTest]
+        public IEnumerator Water_PotFillsNearSurfaceAndFloatsWhenDropped()
+        {
+            var pond = PondWater.Instance;
+            var pot = Object.FindFirstObjectByType<CookingPot>();
+            Assert.That(pond, Is.Not.Null, "pond surface (PondWater) missing");
+            Assert.That(pot, Is.Not.Null);
+            var rb = pot.GetComponent<Rigidbody>();
+            Vector3 home = pot.transform.position;
+            pot.SetState(CookingPot.PotState.Empty);
+
+            // over the water, 20 cm above the surface: a dip a standing player can reach
+            Vector3 over = pond.transform.position + new Vector3(3f, 0.2f, 0f);
+            rb.isKinematic = true;
+            pot.transform.position = over;
+            rb.position = over;
+            float until = Time.time + 2f;
+            while (pot.state == CookingPot.PotState.Empty && Time.time < until) yield return null;
+            Assert.That(pot.state, Is.EqualTo(CookingPot.PotState.DirtyWater),
+                "pot held 20 cm above the pond did not fill");
+
+            // let go over deep water: it must bob at the surface, not sink 3 m out of reach
+            rb.isKinematic = false;
+            rb.linearVelocity = Vector3.zero;
+            Vector3 drop = pond.transform.position + new Vector3(0f, 0.5f, 0f);
+            pot.transform.position = drop;
+            rb.position = drop;
+            until = Time.time + 4f;
+            while (Time.time < until) yield return new WaitForFixedUpdate();
+            Assert.That(pot.transform.position.y, Is.EqualTo(pond.SurfaceY).Within(0.25f),
+                $"pot did not float: y {pot.transform.position.y:F2}, surface {pond.SurfaceY:F2}");
+
+            // put it back for the other tests
+            rb.linearVelocity = Vector3.zero;
+            pot.transform.position = home;
+            rb.position = home;
+            pot.SetState(CookingPot.PotState.Empty);
+        }
+
+        [UnityTest]
         public IEnumerator Movement_SprintSpeedsAppliedToEveryProvider()
         {
             yield return null;

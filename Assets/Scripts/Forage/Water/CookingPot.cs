@@ -17,6 +17,9 @@ namespace Forage
         public float drinkDistance = 0.30f;   // pot-to-head distance that counts as drinking
         public float drinkHoldSeconds = 0.9f;
         public float fireRadius = 1.3f;       // how close to the fire pit to boil
+        [Tooltip("How far above the pond surface the pot may be and still scoop. " +
+                 "The surface sits at bank level, so 5 cm meant a full crouch to the floor.")]
+        public float scoopReach = 0.3f;
         [Tooltip("Set from the generated pond at runtime; the pot must dip below this to scoop.")]
         public float scoopMaxY = 0.0f;
 
@@ -43,7 +46,8 @@ namespace Forage
         {
             // scooping threshold follows the generated pond surface
             if (ForestGenerator.Instance != null)
-                scoopMaxY = ForestGenerator.Instance.WaterLevel + 0.05f;
+                scoopMaxY = ForestGenerator.Instance.WaterLevel + scoopReach;
+            _rb = GetComponent<Rigidbody>();
 
             // water surface disc inside the pot rim
             _waterMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
@@ -59,6 +63,9 @@ namespace Forage
 
             switch (state)
             {
+                case PotState.Empty:
+                    TryScoop();
+                    break;
                 case PotState.DirtyWater:
                     TryBoil();
                     TryDrink(contaminated: true);
@@ -189,13 +196,45 @@ namespace Forage
             }
         }
 
-        void OnTriggerStay(Collider other)
+        static bool OverPond(Vector3 p)
         {
-            if (state != PotState.Empty) return;
-            if (!other.CompareTag("Water")) return;
-            if (transform.position.y > scoopMaxY) return; // must actually dip it down to the water
+            var w = PondWater.Instance;
+            return w != null && w.IsOverWater(p);
+        }
+
+        /// <summary>
+        /// Dip the pot down to the water and it fills: over the pond and within
+        /// scoopReach of the surface. (This was a trigger check that needed the
+        /// pot within 5 cm of a surface level with the bank, so it never filled.)
+        /// </summary>
+        void TryScoop()
+        {
+            if (!OverPond(transform.position) || transform.position.y > scoopMaxY) return;
             SetState(PotState.DirtyWater);
+            PondWater.Splash(transform.position, 1f);
+            Haptics.Pulse(0.3f, 0.1f);
             ForageEvents.RaiseSignal("water-scooped");
+        }
+
+        Rigidbody _rb;
+
+        /// <summary>
+        /// The pond is about 3 m deep in the middle. A pot dropped in used to sink
+        /// out of reach for good; now it bobs at the surface.
+        /// </summary>
+        void FixedUpdate()
+        {
+            if (_rb == null || _rb.isKinematic) return;
+            if (_grab != null && _grab.isSelected) return;
+            var w = PondWater.Instance;
+            if (w == null || !w.IsOverWater(_rb.position)) return;
+
+            float depth = w.SurfaceY - (_rb.position.y + 0.04f);   // floats with its base just under the surface
+            if (depth <= 0f) return;
+            _rb.AddForce(Vector3.up * Physics.gravity.magnitude * (1f + Mathf.Clamp01(depth / 0.06f) * 1.5f),
+                ForceMode.Acceleration);
+            _rb.linearVelocity *= 0.9f;    // water drag
+            _rb.angularVelocity *= 0.9f;
         }
     }
 }

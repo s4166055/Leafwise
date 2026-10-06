@@ -144,6 +144,22 @@ namespace Forage
             });
         }
 
+        /// <summary>Splash for dipping the pot or a hand into the pond: a soft noise
+        /// burst plus two quick rising "bloop" tones for the bubbles.</summary>
+        public static AudioClip Splash()
+        {
+            float lp = 0f;
+            return Bake("splash", 0.5f, (i, t) =>
+            {
+                lp = Mathf.Lerp(lp, Noise(), 0.35f);
+                float wash = lp * Mathf.Exp(-t * 9f) * 0.7f;
+                float bloop1 = Mathf.Sin(2f * Mathf.PI * (320f + t * 900f) * t) * Mathf.Exp(-t * 22f) * 0.35f;
+                float t2 = Mathf.Max(0f, t - 0.07f);
+                float bloop2 = Mathf.Sin(2f * Mathf.PI * (420f + t2 * 1200f) * t2) * Mathf.Exp(-t2 * 26f) * 0.25f * (t > 0.07f ? 1f : 0f);
+                return wash + bloop1 + bloop2;
+            });
+        }
+
         /// <summary>Crunch for eating.</summary>
         public static AudioClip Crunch()
         {

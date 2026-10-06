@@ -3,15 +3,19 @@ using UnityEngine;
 namespace Forage
 {
     /// <summary>
-    /// A session-length day: the sun arcs down over ~10 minutes into dusk and
-    /// night. Night makes Warmth matter (fire/shelter), swaps birdsong for
-    /// crickets and owl calls, completes the survive objective and shows the
-    /// end-of-session lessons summary.
+    /// A looping day: the sun arcs down over ~10 minutes into dusk and night,
+    /// night lasts a few minutes, then the sun rises again and a new day starts.
+    /// Night makes Warmth matter (fire/shelter) and swaps birdsong for crickets
+    /// and owl calls. The first nightfall completes the survive objective and
+    /// shows the lessons summary. (Night used to be the end state: the sun never
+    /// came back up, which headset testers read as a bug.)
     /// </summary>
     public class DayNightCycle : MonoBehaviour
     {
         public Light sun;
-        public float dayLengthSeconds = 600f; // sunset arc; night continues after
+        public float dayLengthSeconds = 600f;   // noon-ish to below the horizon
+        public float nightLengthSeconds = 180f;
+        public float dawnLengthSeconds = 45f;   // below the horizon back up to day height
 
         [Header("State (read-only)")]
         public bool isNight;
@@ -20,6 +24,32 @@ namespace Forage
         bool _nightfallHandled;
         AudioSource _crickets;
         float _owlTimer = 20f;
+
+        const float DayElevation = 38f, NightElevation = -14f;
+
+        public float CycleLength => dayLengthSeconds + nightLengthSeconds + dawnLengthSeconds;
+
+        /// <summary>Sun elevation and yaw for a time within the cycle.</summary>
+        public void SunAt(float p, out float elevation, out float yaw)
+        {
+            if (p < dayLengthSeconds)
+            {
+                float k = p / dayLengthSeconds;
+                elevation = Mathf.Lerp(DayElevation, NightElevation, k);
+                yaw = -38f + k * 30f;
+            }
+            else if (p < dayLengthSeconds + nightLengthSeconds)
+            {
+                elevation = NightElevation;
+                yaw = -8f;
+            }
+            else
+            {
+                float k = Mathf.SmoothStep(0f, 1f, (p - dayLengthSeconds - nightLengthSeconds) / dawnLengthSeconds);
+                elevation = Mathf.Lerp(NightElevation, DayElevation, k);
+                yaw = Mathf.Lerp(-8f, -38f, k);
+            }
+        }
 
         static readonly Color DaySun = new Color(1f, 0.93f, 0.78f);
         static readonly Color DuskSun = new Color(1f, 0.55f, 0.3f);
@@ -30,11 +60,8 @@ namespace Forage
         {
             if (sun == null) return;
             _t += Time.deltaTime;
-            float k = Mathf.Clamp01(_t / dayLengthSeconds);
-
-            // sun elevation 38° -> -14° (below horizon)
-            float elevation = Mathf.Lerp(38f, -14f, k);
-            sun.transform.rotation = Quaternion.Euler(elevation, -38f + k * 30f, 0f);
+            SunAt(_t % CycleLength, out float elevation, out float yaw);
+            sun.transform.rotation = Quaternion.Euler(elevation, yaw, 0f);
 
             // light: warm day -> ember dusk -> off
             float duskT = Mathf.InverseLerp(14f, 2f, elevation);   // 0 day .. 1 deep dusk
@@ -53,11 +80,18 @@ namespace Forage
                 isNight = nightNow;
                 var gm = GameManager.Instance;
                 if (gm != null && gm.vitals != null) gm.vitals.isNight = isNight;
+                if (!isNight && _nightfallHandled) OnSunrise();
             }
+
+            // crickets follow the dark, so they fade away at dawn
+            if (_crickets != null)
+                _crickets.volume = Mathf.MoveTowards(_crickets.volume, isNight ? 0.25f : 0f, Time.deltaTime * 0.1f);
 
             if (isNight)
             {
                 if (!_nightfallHandled) OnNightfall();
+                else if (_crickets == null)
+                    _crickets = ProceduralAudio.Loop(transform, ProceduralAudio.Crickets(), 0f, spatial: 0f);
                 _owlTimer -= Time.deltaTime;
                 if (_owlTimer <= 0f)
                 {
@@ -82,6 +116,14 @@ namespace Forage
             gm.CompleteObjective("survive");
             ShowSummary(gm);
             ForageEvents.RaiseSignal("nightfall");
+        }
+
+        void OnSunrise()
+        {
+            ForageEvents.RaiseSignal("sunrise");
+            var scout = FindFirstObjectByType<ScoutCompanion>();
+            if (scout != null)
+                scout.Say("Sunrise! You made it through the night. A new day to forage.");
         }
 
         void ShowSummary(GameManager gm)
