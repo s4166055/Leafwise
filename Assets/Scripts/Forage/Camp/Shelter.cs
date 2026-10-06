@@ -63,8 +63,18 @@ namespace Forage
             trigger.center = new Vector3(0, 1f, -0.4f);
         }
 
-        void OnTriggerEnter(Collider other)
+        void OnTriggerEnter(Collider other) => TryAccept(other, hint: true);
+
+        // Enter alone misses the natural VR move: carry the branch in, then let
+        // go. It was held when it entered, so it was skipped, and releasing it
+        // inside raises no second Enter. Stay picks it up once it is let go.
+        void OnTriggerStay(Collider other) => TryAccept(other, hint: false);
+
+        void TryAccept(Collider other, bool hint)
         {
+            // Enter and Stay can both be queued in one physics step; the second
+            // arrives after the first has switched the colliders off: skip it
+            if (!other.enabled) return;
             var item = other.GetComponentInParent<SurvivalItem>();
             if (item == null) return;
             if (item.kind != ItemKind.Branch && item.kind != ItemKind.LeafBundle) return;
@@ -78,12 +88,19 @@ namespace Forage
             }
             else if (item.kind == ItemKind.LeafBundle && leaves < leavesNeeded)
             {
-                if (branches == 0) { ForageEvents.RaiseHint("shelter-branches-first"); return; }
+                if (branches == 0)
+                {
+                    if (hint) ForageEvents.RaiseHint("shelter-branches-first");
+                    return;
+                }
                 AddLeafPanel(leaves);
                 leaves++;
             }
             else return;
 
+            // Destroy lands at end of frame; drop the colliders now so neither a
+            // queued event nor a second physics step can count this item again.
+            foreach (var c in item.GetComponentsInChildren<Collider>()) c.enabled = false;
             Destroy(item.gameObject);
             ProceduralAudio.PlayAt(transform.position, ProceduralAudio.Crunch(), 0.7f);
             Haptics.Pulse(0.3f, 0.12f);

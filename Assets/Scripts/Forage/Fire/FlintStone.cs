@@ -12,18 +12,43 @@ namespace Forage
     public class FlintStone : MonoBehaviour
     {
         [Header("Tuning")]
-        public float minStrikeSpeed = 1.3f;   // m/s relative impact speed for any sparks
-        public float goodStrikeSpeed = 2.4f;  // a hard, fire-worthy strike
+        // Lowered after headset testing: 2.4 m/s was rarely reached in VR, where
+        // a held stone lags the hand, and tracked hands blur on fast swings.
+        public float minStrikeSpeed = 1.0f;   // m/s relative impact speed for any sparks
+        public float goodStrikeSpeed = 1.7f;  // a hard, fire-worthy strike
         public float sparkRangeToPit = 1.2f;  // strikes must happen near the pit
+
+        [Header("Findability")]
+        public float twinkleInterval = 3.5f;  // a few idle sparks until someone picks a flint up
 
         XRGrabInteractable _grab;
         Rigidbody _rb;
         float _lastSparkTime;
+        float _twinkleTimer;
+
+        // Shared by both stones: once either has been picked up, the player
+        // knows what they are and the twinkle stops for good.
+        static bool _everPickedUp;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => _everPickedUp = false;
 
         void Awake()
         {
             _grab = GetComponent<XRGrabInteractable>();
             _rb = GetComponent<Rigidbody>();
+            _twinkleTimer = Random.Range(0.5f, twinkleInterval);
+        }
+
+        void Update()
+        {
+            if (_everPickedUp) return;
+            if (_grab != null && _grab.isSelected) { _everPickedUp = true; return; }
+
+            _twinkleTimer -= Time.deltaTime;
+            if (_twinkleTimer > 0f) return;
+            _twinkleTimer = twinkleInterval;
+            FireVfx.SparkBurst(transform.position + Vector3.up * 0.06f, 4);
         }
 
         void OnCollisionEnter(Collision collision)

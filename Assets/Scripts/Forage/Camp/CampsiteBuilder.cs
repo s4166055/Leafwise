@@ -11,7 +11,7 @@ namespace Forage
     public class CampsiteBuilder : MonoBehaviour
     {
         [Header("Counts")]
-        public int drySticks = 8;
+        public int drySticks = 20;   // was 8: too few to find, and a fire eats one every 150 s
         public int wetSticks = 4;
         public int tinderBundles = 4;
 
@@ -53,7 +53,7 @@ namespace Forage
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = 6f + (float)rand.NextDouble() * 14f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                branch.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.15f, z);
+                PlaceOnGround(branch.transform, x, z, forest, 0.15f);
                 branch.transform.rotation = Quaternion.Euler(0, (float)rand.NextDouble() * 360f, 0);
             }
             for (int i = 0; i < 5; i++)
@@ -62,8 +62,30 @@ namespace Forage
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = 5f + (float)rand.NextDouble() * 12f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                bundle.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.12f, z);
+                PlaceOnGround(bundle.transform, x, z, forest, 0.12f);
             }
+        }
+
+
+        /// <summary>
+        /// Put a loose item on the ground physics actually uses.
+        ///
+        /// HeightAt is the analytic height field. The terrain mesh samples it on
+        /// a ~1.3 m grid (worldSize 144 / gridResolution 110), so between two
+        /// samples the flat triangle can sit ABOVE the curve in a concave dip.
+        /// An item placed at HeightAt plus a few centimetres then starts inside
+        /// the mesh, and PhysX drops it straight through the world - one berry
+        /// cluster was found at y = -152 falling at terminal velocity.
+        /// A downward ray finds the real surface; the analytic height stays as
+        /// the fallback for the rare miss.
+        /// </summary>
+        static void PlaceOnGround(Transform t, float x, float z, ForestGenerator forest, float clearance)
+        {
+            float analytic = forest.HeightAt(x, z);
+            if (Physics.Raycast(new Vector3(x, analytic + 6f, z), Vector3.down, out var hit, 30f))
+                t.position = new Vector3(x, hit.point.y + clearance, z);
+            else
+                t.position = new Vector3(x, analytic + clearance, z);
         }
 
         void ScatterBerries(ForestGenerator forest)
@@ -75,11 +97,16 @@ namespace Forage
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = 8f + (float)rand.NextDouble() * 45f;
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                // decide BEFORE creating it: a skipped cluster used to be left at the
-                // world origin, underground, falling forever
+
+                // Choose the spot BEFORE creating the cluster. This used to create
+                // first and then `continue` when the spot was too close to the
+                // pond - leaving that cluster at the default (0,0,0), which is
+                // 3.15 m under the camp's ground. It then fell through the world
+                // every session (found at y = -152 at terminal velocity).
                 if (Vector2.Distance(new Vector2(x, z), forest.pondCenter) < forest.pondRadius + 1f) continue;
+
                 var cluster = ItemFactory.BerryCluster(forest.seed + 600 + i, safe);
-                cluster.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.06f, z);
+                PlaceOnGround(cluster.transform, x, z, forest, 0.10f);
             }
         }
 
@@ -191,36 +218,12 @@ namespace Forage
             var pot = ItemFactory.Pot();
             pot.transform.position = pitPos + new Vector3(-0.9f, 0.25f, 0.3f);
 
-            BuildBucketStation(forest, pitPos);
-
             // two flint stones: strike them together hard near the pit for sparks
             for (int i = 0; i < 2; i++)
             {
                 var flint = ItemFactory.FlintStone(forest.seed + 950 + i);
                 flint.transform.position = pitPos + new Vector3(0.55f + i * 0.18f, 0.2f, -0.5f);
             }
-        }
-
-        /// <summary>
-        /// Bucket stand on the pit's edge (inside the fire's heat) and the bucket
-        /// beside it. Plus the drink-button handler, which lives with the camp systems.
-        /// </summary>
-        void BuildBucketStation(ForestGenerator forest, Vector3 pitPos)
-        {
-            var standPos = pitPos + new Vector3(-0.35f, 0f, -0.82f);
-            standPos.y = forest.HeightAt(standPos.x, standPos.z);
-            var standGo = new GameObject("BucketStand");
-            standGo.transform.position = standPos;
-            // face the stand toward the pit so the sign reads from the fire side
-            Vector3 toPit = pitPos - standPos; toPit.y = 0f;
-            standGo.transform.rotation = Quaternion.LookRotation(toPit.normalized);
-            standGo.AddComponent<BucketStand>().Build();
-
-            var bucketPos = pitPos + new Vector3(-1.15f, 0f, -0.6f);
-            var bucket = ItemFactory.Bucket();
-            bucket.transform.position = new Vector3(bucketPos.x, forest.HeightAt(bucketPos.x, bucketPos.z) + 0.05f, bucketPos.z);
-
-            if (GetComponent<HandDrinking>() == null) gameObject.AddComponent<HandDrinking>();
         }
 
         void ScatterGatherables(ForestGenerator forest)
@@ -232,7 +235,9 @@ namespace Forage
                 float a = (float)rand.NextDouble() * Mathf.PI * 2f;
                 float r = Mathf.Lerp(minR, maxR, (float)rand.NextDouble());
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                return new Vector3(x, forest.HeightAt(x, z) + 0.1f, z);
+                float gy = forest.HeightAt(x, z);
+                if (Physics.Raycast(new Vector3(x, gy + 6f, z), Vector3.down, out var gh, 30f)) gy = gh.point.y;
+                return new Vector3(x, gy + 0.12f, z);
             }
 
             for (int i = 0; i < drySticks; i++)
@@ -250,7 +255,7 @@ namespace Forage
                 float r = forest.pondRadius + 1.2f + (float)rand.NextDouble() * 2f;
                 float x = forest.pondCenter.x + Mathf.Cos(a) * r;
                 float z = forest.pondCenter.y + Mathf.Sin(a) * r;
-                stick.transform.position = new Vector3(x, forest.HeightAt(x, z) + 0.1f, z);
+                PlaceOnGround(stick.transform, x, z, forest, 0.12f);
             }
 
             for (int i = 0; i < tinderBundles; i++)

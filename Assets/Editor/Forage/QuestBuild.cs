@@ -138,22 +138,17 @@ namespace Forage.EditorTools
             "MetaQuestTouchProControllerProfile",    // Quest Pro controllers
             "OculusTouchControllerProfile",          // Quest 2 and older
             "MetaQuestFeature",
+
+            // Tracked hands. The rig (Complete XR Origin Set Up Hands Variant) has
+            // hand objects wired into XRInputModalityManager, so putting the
+            // controllers down switches to hands instead of stranding the player.
+            "HandTracking",            // XR Hands joint data: hand visuals and the wrist HUD
+            "MetaHandTrackingAim",     // pinch strength and aim pose on Quest
+            "HandInteractionProfile",  // pinch pose / pinch value the grab interactors read
         };
 
         /// <summary>
-        /// Profiles that must stay off. Meta's detached-controller profiles
-        /// (XR_META_detached_controllers) suggest binding paths this runtime
-        /// rejects, e.g. /user/detached_controller_meta/left/input/thumbrest/force.
-        /// xrSuggestInteractionProfileBindings then fails with
-        /// XR_ERROR_PATH_UNSUPPORTED - and because that call registers the whole
-        /// combined binding set atomically, ONE bad path discards every controller
-        /// binding. The controllers still track, but nothing is bound to grab,
-        /// trigger or anything else, so the game looks like it ignores your hands.
-        /// </summary>
-        /// <summary>
-        /// Features that must stay off, each with the reason it is off, because
-        /// they are off for two quite different reasons and a future reader
-        /// should not have to guess which.
+        /// Features that must stay off, each with the reason it is off.
         /// </summary>
         static readonly (string Name, string Reason)[] UnwantedFeatures =
         {
@@ -169,18 +164,9 @@ namespace Forage.EditorTools
             ("DetachedMetaQuestTouchProControllerProfile",  "its binding paths discard all controller bindings"),
             ("DetachedOculusTouchControllerProfile",        "its binding paths discard all controller bindings"),
 
-            // Hand tracking is off for a different reason: the rig has nothing to
-            // drive with it. XRInputModalityManager on the XR Origin has
-            // leftController/rightController assigned but leftHand/rightHand empty,
-            // and the scene contains no hand skeleton driver or hand interactors.
-            // With these on, the moment the runtime reports tracked hands (put the
-            // controllers down, or move them out of view) the manager switches to
-            // hand mode, disables the controller objects and enables nothing, so
-            // the player is left with no way to interact at all. Forage's mechanics
-            // are grab-based, so controllers stay authoritative until hands are
-            // wired up properly as a feature of their own.
-            ("HandTracking",        "the rig has no hand objects, so hand mode would leave you with no input"),
-            ("MetaHandTrackingAim", "the rig has no hand objects, so hand mode would leave you with no input"),
+            // Hand tracking used to be listed here: the old controller-only rig had
+            // no hand objects, so hand mode left the player with no input at all.
+            // The hands rig fixed that, and it is now in WantedFeatures.
         };
 
         /// <summary>
@@ -257,6 +243,10 @@ namespace Forage.EditorTools
             bool profileOk = openXr != null && openXr.GetFeatures<OpenXRFeature>()
                 .Any(f => f != null && f.enabled && f.GetType().Name.Contains("ControllerProfile"));
             Check(profileOk, "A controller interaction profile is enabled", "Run step 1");
+
+            bool handsOk = openXr != null && new[] { "HandTracking", "MetaHandTrackingAim" }.All(n =>
+                openXr.GetFeatures<OpenXRFeature>().Any(f => f != null && f.enabled && f.GetType().Name == n));
+            Check(handsOk, "Hand tracking features enabled (hands-first rig)", "Run step 1");
 
             // One detached profile left on kills every controller binding, so it
             // is a build blocker rather than a warning.

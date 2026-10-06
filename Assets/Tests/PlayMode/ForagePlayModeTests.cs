@@ -86,6 +86,71 @@ namespace Forage.Tests
         }
 
         [UnityTest]
+        public IEnumerator Fire_FuelReleasedInsideRingIsAcceptedAndLights()
+        {
+            var pit = FirePit.Instance;
+            Assert.That(pit, Is.Not.Null);
+            var items = Object.FindObjectsByType<SurvivalItem>(FindObjectsSortMode.None)
+                .Where(i => !i.transform.IsChildOf(pit.transform)).ToList();
+            var tinder = items.First(i => i.kind == ItemKind.Tinder);
+            var stick = items.First(i => i.kind == ItemKind.Stick && !i.isWet);
+            int tinderBefore = pit.tinderCount, sticksBefore = pit.stickCount;
+            Vector3 inRing = pit.transform.position + Vector3.up * 0.25f;
+
+            // The bug being pinned: an item carried into the ring is held as it
+            // enters (so Enter rejects it) and is let go INSIDE the trigger. A
+            // socket stands in for the hand: it grabs without input, and turning
+            // it off is a release.
+            // take hold OUTSIDE the ring first, then carry it in, as a hand would
+            Vector3 outside = pit.transform.position + new Vector3(0f, 1.5f, 2.5f);
+            var socketGo = new GameObject("TestHand");
+            socketGo.transform.position = outside;
+            var socketCol = socketGo.AddComponent<SphereCollider>();
+            socketCol.isTrigger = true;
+            socketCol.radius = 0.2f;
+            var socket = socketGo.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor>();
+
+            var grab = tinder.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            tinder.transform.position = outside;
+            tinder.GetComponent<Rigidbody>().WakeUp();
+            float until = Time.time + 3f;
+            while (!grab.isSelected && Time.time < until) yield return null;
+            Assert.That(grab.isSelected, Is.True, "test setup: the socket never took hold of the tinder");
+
+            socketGo.transform.position = inRing;   // carry it into the ring, still held
+            for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
+            Assert.That(Vector3.Distance(tinder.transform.position, inRing), Is.LessThan(0.3f),
+                "test setup: the held tinder did not follow the hand into the ring");
+            Assert.That(pit.tinderCount, Is.EqualTo(tinderBefore), "a HELD item must not be taken as fuel");
+
+            socket.socketActive = false;   // let go, still inside the ring
+            until = Time.time + 3f;
+            while (pit.tinderCount == tinderBefore && Time.time < until) yield return null;
+            Object.Destroy(socketGo);
+            Assert.That(pit.tinderCount, Is.EqualTo(tinderBefore + 1),
+                "tinder released inside the ring was never accepted (Enter-only trigger)");
+
+            // a stick simply dropped in is the path that always worked
+            stick.transform.position = inRing;
+            stick.GetComponent<Rigidbody>().WakeUp();
+            until = Time.time + 3f;
+            while (pit.stickCount == sticksBefore && Time.time < until) yield return null;
+            Assert.That(pit.stickCount, Is.EqualTo(sticksBefore + 1), "dropped stick was not accepted");
+
+            // three good flint strikes light it
+            pit.burnSecondsPerStick = 0.5f;   // short burn so the fire-out path runs inside the test
+            for (int i = 0; i < 3; i++) pit.AddHeat(40f);
+            Assert.That(pit.state, Is.EqualTo(FirePit.FireState.Burning), $"heat {pit.heat} did not ignite");
+
+            until = Time.time + 10f;
+            while (pit.state == FirePit.FireState.Burning && Time.time < until) yield return null;
+            yield return null;   // Destroy lands at end of frame
+            Assert.That(pit.state, Is.EqualTo(FirePit.FireState.Unlit), "fire never burned out");
+            Assert.That(pit.GetComponentsInChildren<SurvivalItem>().Length, Is.Zero,
+                "burnt fuel is still piled in the ring after the fire went out");
+        }
+
+        [UnityTest]
         public IEnumerator Movement_SprintSpeedsAppliedToEveryProvider()
         {
             yield return null;

@@ -16,7 +16,9 @@ namespace Forage.EditorTools
         const string ScenePath = "Assets/Scenes/Forage.unity";
         const string MaterialDir = "Assets/Forage/Materials";
         const string TextureDir = "Assets/Forage/Textures";
-        const string RigPrefabPath = "Assets/VRTemplateAssets/Prefabs/Setup/Complete XR Origin Set Up Variant.prefab";
+        // Hands variant: tracked hands (pinch to grab, poke) are the default, and
+        // XRInputModalityManager switches to the controllers when they are picked up.
+        const string RigPrefabPath = "Assets/VRTemplateAssets/Prefabs/Setup/Complete XR Origin Set Up Hands Variant.prefab";
 
         [MenuItem("Forage/Build Forage Scene")]
         public static void BuildScene()
@@ -51,56 +53,10 @@ namespace Forage.EditorTools
             var forest = forestGo.AddComponent<ForestGenerator>();
 
             // --- XR rig from the VR template ---
-            var rigPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RigPrefabPath);
-            if (rigPrefab == null)
-            {
-                Debug.LogError($"[Forage] Rig prefab not found at {RigPrefabPath}");
-                return;
-            }
-            var rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab);
-            rig.name = "XR Origin Rig";
             // spawn on the camp plateau (the clearing is no longer flattened to y=0),
             // 1 m up so the character controller settles onto the ground
-            rig.transform.position = new Vector3(0f, ForestGenerator.CampLevel(forest.seed) + 1f, 0f);
-
-            // Room-scale (Floor / stage space). Device mode is the seated 3DOF
-            // origin: it pins the origin to wherever the head happened to be at
-            // startup, ignores the real floor, and therefore needs a faked
-            // eye-height offset. With Floor the headset reports true head height
-            // and position, so physically stepping, leaning, crouching and
-            // turning all move the view 1:1 — the actual point of playing in VR.
-            var origin = rig.GetComponentInChildren<Unity.XR.CoreUtils.XROrigin>();
-            if (origin != null)
-            {
-                origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Floor;
-
-                // XROrigin applies CameraYOffset ONLY when the runtime is in
-                // Device/Unbounded mode - including a mid-session drop from
-                // Floor when the boundary is lost - and zeroes the floor offset
-                // itself in Floor mode. So this is the seated fallback, not a
-                // fixed height, and it must not be zero or that fallback is gone.
-                // It is also the serialised height for flat play in the editor,
-                // where no XR subsystem exists and XROrigin never moves the offset.
-                origin.CameraYOffset = 1.7f;
-                if (origin.CameraFloorOffsetObject != null)
-                    origin.CameraFloorOffsetObject.transform.localPosition = new Vector3(0f, 1.7f, 0f);
-            }
-
-            // Log-only: reports which origin mode the headset actually granted.
-            rig.AddComponent<VrTrackingSetup>();
-
-            var characterController = rig.GetComponentInChildren<CharacterController>();
-            if (characterController != null)
-            {
-                characterController.height = 1.75f;
-                characterController.center = new Vector3(0f, 0.875f, 0f);
-                // The forest is hilly and littered with roots and rocks. The
-                // defaults (45 deg slope, 0.3 m step) snag constantly, which
-                // reads as "movement is slow" even at a high move speed.
-                characterController.slopeLimit = 60f;
-                characterController.stepOffset = 0.6f;
-                characterController.skinWidth = 0.03f;
-            }
+            var rig = CreateRig(new Vector3(0f, ForestGenerator.CampLevel(forest.seed) + 1f, 0f));
+            if (rig == null) return;
 
             // --- systems ---
             var systems = new GameObject("Forage Systems");
@@ -172,13 +128,8 @@ namespace Forage.EditorTools
             animals.squirrelNormal = AssetDatabase.LoadAssetAtPath<Texture2D>(
                 "Assets/FurrySquirrel/Textures/Squirrel_Normal.png");
 
-            // --- wrist HUD on the left controller ---
-            var leftHand = FindDeep(rig.transform, t =>
-                t.name.ToLowerInvariant().Contains("left") && t.name.ToLowerInvariant().Contains("controller"));
-            var hudAnchor = new GameObject("WristHudAnchor");
-            hudAnchor.transform.SetParent(leftHand != null ? leftHand : rig.transform, false);
-            hudAnchor.transform.localPosition = new Vector3(0f, 0.035f, -0.14f); // watch position on the forearm
-            hudAnchor.transform.localRotation = Quaternion.Euler(55f, 0f, 0f);
+            // --- wrist HUD on the left wrist (controller or tracked hand) ---
+            var hudAnchor = CreateWristHudAnchor(rig);
             var hud = hudAnchor.AddComponent<WristHud>();
             hud.vitals = vitals;
 
@@ -197,6 +148,246 @@ namespace Forage.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
             Debug.Log("[Forage] Forage scene built and saved to " + ScenePath);
+        }
+
+        // ------------------------------------------------------------------
+        // XR rig
+        // ------------------------------------------------------------------
+
+        /// <summary>Instantiates and configures the player rig. Shared by the full build and the rig swap.</summary>
+        static GameObject CreateRig(Vector3 position)
+        {
+            var rigPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RigPrefabPath);
+            if (rigPrefab == null)
+            {
+                Debug.LogError($"[Forage] Rig prefab not found at {RigPrefabPath}");
+                return null;
+            }
+            var rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab);
+            rig.name = "XR Origin Rig";
+            rig.transform.position = position;
+
+            // Room-scale (Floor / stage space). Device mode is the seated 3DOF
+            // origin: it pins the origin to wherever the head happened to be at
+            // startup, ignores the real floor, and therefore needs a faked
+            // eye-height offset. With Floor the headset reports true head height
+            // and position, so physically stepping, leaning, crouching and
+            // turning all move the view 1:1 — the actual point of playing in VR.
+            var origin = rig.GetComponentInChildren<Unity.XR.CoreUtils.XROrigin>();
+            if (origin != null)
+            {
+                origin.RequestedTrackingOriginMode = Unity.XR.CoreUtils.XROrigin.TrackingOriginMode.Floor;
+
+                // XROrigin applies CameraYOffset ONLY when the runtime is in
+                // Device/Unbounded mode - including a mid-session drop from
+                // Floor when the boundary is lost - and zeroes the floor offset
+                // itself in Floor mode. So this is the seated fallback, not a
+                // fixed height, and it must not be zero or that fallback is gone.
+                // It is also the serialised height for flat play in the editor,
+                // where no XR subsystem exists and XROrigin never moves the offset.
+                origin.CameraYOffset = 1.7f;
+                if (origin.CameraFloorOffsetObject != null)
+                    origin.CameraFloorOffsetObject.transform.localPosition = new Vector3(0f, 1.7f, 0f);
+            }
+
+            // Log-only: reports which origin mode the headset actually granted.
+            rig.AddComponent<VrTrackingSetup>();
+
+            var characterController = rig.GetComponentInChildren<CharacterController>();
+            if (characterController != null)
+            {
+                characterController.height = 1.75f;
+                characterController.center = new Vector3(0f, 0.875f, 0f);
+                // The forest is hilly and littered with roots and rocks. The
+                // defaults (45 deg slope, 0.3 m step) snag constantly, which
+                // reads as "movement is slow" even at a high move speed.
+                characterController.slopeLimit = 60f;
+                characterController.stepOffset = 0.6f;
+                characterController.skinWidth = 0.03f;
+            }
+
+            // The hands rig (XRI Hands Interaction Demo base) switches gravity
+            // off for its tabletop demo. Forage spawns 1 m up and walks hills,
+            // so without gravity the player floats at spawn height forever.
+            foreach (var gravity in rig.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.Locomotion.Gravity.GravityProvider>(true))
+                gravity.useGravity = true;
+
+            // The VR template's controller callouts pop labels up whenever you
+            // glance at a controller: clutter in the middle of the view.
+            foreach (var t in rig.GetComponentsInChildren<Transform>(true))
+                if (t.name.StartsWith("Affordance Callouts"))
+                    t.gameObject.SetActive(false);
+
+            LightenComfortVignette(rig);
+            GrabsComeToHand(rig);
+            return rig;
+        }
+
+        /// <summary>
+        /// Far grabs (ray or pinch-at-a-distance) pull the object into your hand
+        /// instead of leaving it hanging at the end of the ray, so a mushroom or
+        /// fish picked up from afar can be brought to your mouth. Carried over
+        /// from the environment branch, where it was set on the old rig's
+        /// controller interactors only; this applies it to hands as well.
+        /// </summary>
+        public static void GrabsComeToHand(GameObject rig)
+        {
+            foreach (var nf in rig.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.Interactors.NearFarInteractor>(true))
+            {
+                nf.farAttachMode = UnityEngine.XR.Interaction.Toolkit.Attachment.InteractorFarAttachMode.Near;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(nf);
+            }
+        }
+
+        /// <summary>
+        /// Re-applies the rig settings above to the saved Forage scene without
+        /// rebuilding it. Also runs headless:
+        /// Unity.exe -batchmode -projectPath . -executeMethod
+        ///   Forage.EditorTools.ForageSceneBuilder.ApplyRigSettingsToScene -quit
+        /// </summary>
+        [MenuItem("Forage/Apply Rig Settings To Scene")]
+        public static void ApplyRigSettingsToScene()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var rig = scene.GetRootGameObjects().FirstOrDefault(g => g.name == "XR Origin Rig");
+            if (rig == null)
+            {
+                Debug.LogError("[Forage] Apply rig settings: no 'XR Origin Rig' in " + ScenePath);
+                return;
+            }
+            LightenComfortVignette(rig);
+            GrabsComeToHand(rig);
+            int interactors = rig.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.Interactors.NearFarInteractor>(true).Length;
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[Forage] Rig settings applied: vignette 0.9, far grabs come to hand on {interactors} interactor(s). Scene saved.");
+        }
+
+        /// <summary>
+        /// The template's tunneling vignette closes the view to 70% whenever you
+        /// move or turn. At Forage's pace you are almost always moving, so the
+        /// edges of the view were dark most of the time - the "it takes our
+        /// vision" complaint. 90% keeps a hint of the comfort effect.
+        /// </summary>
+        public static void LightenComfortVignette(GameObject rig)
+        {
+            foreach (var v in rig.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.Locomotion.Comfort.TunnelingVignetteController>(true))
+            {
+                v.defaultParameters.apertureSize = 0.9f;
+                v.defaultParameters.featheringEffect = 0.15f;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(v);
+            }
+        }
+
+        /// <summary>
+        /// The wrist HUD anchor lives in tracking space and follows the left
+        /// controller or the tracked left wrist (see WristAnchorFollower). It
+        /// must not be a child of "Left Controller": hand mode deactivates it.
+        /// </summary>
+        static GameObject CreateWristHudAnchor(GameObject rig)
+        {
+            var origin = rig.GetComponentInChildren<Unity.XR.CoreUtils.XROrigin>();
+            var modality = rig.GetComponentInChildren<UnityEngine.XR.Interaction.Toolkit.Inputs.XRInputModalityManager>(true);
+            var trackingSpace = origin != null && origin.CameraFloorOffsetObject != null
+                ? origin.CameraFloorOffsetObject.transform
+                : rig.transform;
+
+            var hudAnchor = new GameObject("WristHudAnchor");
+            hudAnchor.transform.SetParent(trackingSpace, false);
+            var follow = hudAnchor.AddComponent<WristAnchorFollower>();
+            follow.trackingSpace = trackingSpace;
+            follow.leftController = modality != null && modality.leftController != null
+                ? modality.leftController.transform
+                : FindDeep(rig.transform, t =>
+                    t.name.ToLowerInvariant().Contains("left") && t.name.ToLowerInvariant().Contains("controller"));
+            return hudAnchor;
+        }
+
+        /// <summary>
+        /// Replaces the rig in the open Forage scene with the current rig
+        /// prefab, without rebuilding anything else. BuildScene regenerates the
+        /// whole scene from scratch; this keeps every other object as it is.
+        /// Scene references into the old rig are re-pointed by hierarchy path.
+        /// </summary>
+        [MenuItem("Forage/Swap Player Rig (keep scene)")]
+        public static void SwapRig()
+        {
+            var scene = SceneManager.GetActiveScene();
+            var oldRig = scene.GetRootGameObjects().FirstOrDefault(g => g.name == "XR Origin Rig");
+            if (oldRig == null)
+            {
+                Debug.LogError("[Forage] Rig swap: no root object named 'XR Origin Rig' in the open scene.");
+                return;
+            }
+
+            var rig = CreateRig(oldRig.transform.position);
+            if (rig == null) return;
+            rig.transform.rotation = oldRig.transform.rotation;
+            SceneManager.MoveGameObjectToScene(rig, scene);
+
+            // carry the wrist HUD over (it was added to the old rig in the scene)
+            var oldHud = oldRig.GetComponentInChildren<WristHud>(true);
+            if (oldHud != null)
+            {
+                var anchor = CreateWristHudAnchor(rig);
+                var hud = anchor.AddComponent<WristHud>();
+                hud.vitals = oldHud.vitals;
+            }
+
+            // re-point every scene reference that targeted the old rig
+            int repointed = 0, missed = 0;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root == oldRig || root == rig) continue;
+                foreach (var comp in root.GetComponentsInChildren<Component>(true))
+                {
+                    if (comp == null) continue;
+                    var so = new SerializedObject(comp);
+                    var it = so.GetIterator();
+                    bool changed = false;
+                    while (it.Next(true))
+                    {
+                        if (it.propertyType != SerializedPropertyType.ObjectReference) continue;
+                        var target = it.objectReferenceValue;
+                        Transform targetT = target is GameObject go ? go.transform
+                                          : target is Component c ? c.transform : null;
+                        if (targetT == null || !targetT.IsChildOf(oldRig.transform)) continue;
+
+                        var mapped = MapIntoNewRig(targetT, oldRig.transform, rig.transform);
+                        Object replacement = mapped == null ? null
+                            : target is GameObject ? mapped.gameObject
+                            : (Object)mapped.GetComponent(target.GetType());
+                        if (replacement == null)
+                        {
+                            missed++;
+                            Debug.LogWarning($"[Forage] Rig swap: could not map {comp.GetType().Name}.{it.propertyPath} ({targetT.name})");
+                            continue;
+                        }
+                        it.objectReferenceValue = replacement;
+                        changed = true;
+                        repointed++;
+                    }
+                    if (changed) so.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+
+            Object.DestroyImmediate(oldRig);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[Forage] Rig swapped to {RigPrefabPath}: {repointed} reference(s) re-pointed, {missed} unmapped. Scene saved.");
+        }
+
+        /// <summary>Finds the same object in the new rig: the camera by component, anything else by path.</summary>
+        static Transform MapIntoNewRig(Transform target, Transform oldRoot, Transform newRoot)
+        {
+            if (target == oldRoot) return newRoot;
+            if (target.GetComponent<Camera>() != null)
+                return FindDeep(newRoot, t => t.GetComponent<Camera>() != null);
+
+            var path = new System.Collections.Generic.List<string>();
+            for (var t = target; t != oldRoot; t = t.parent) path.Insert(0, t.name);
+            var found = newRoot.Find(string.Join("/", path));
+            return found != null ? found : FindDeep(newRoot, t => t.name == target.name);
         }
 
         // ------------------------------------------------------------------
