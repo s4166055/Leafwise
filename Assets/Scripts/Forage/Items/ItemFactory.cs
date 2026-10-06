@@ -81,12 +81,14 @@ namespace Forage
         public static GameObject TinderBundle(int seed)
         {
             var go = new GameObject("Tinder");
+            // Bigger (was 0.09) and a brighter golden straw: the old pale clump
+            // matched the dry-grass ground and testers could not find any.
             LowPolyFactory.AddMeshChild(go,
-                LowPolyFactory.Blob(0.09f, 1, 0.45f, seed, new Vector3(1.2f, 0.6f, 1f)),
-                ForageAssets.Instance.tinderStraw, Vector3.up * 0.05f);
+                LowPolyFactory.Blob(0.12f, 1, 0.45f, seed, new Vector3(1.2f, 0.6f, 1f)),
+                TinderMaterial, Vector3.up * 0.06f);
             var col = go.AddComponent<SphereCollider>();
-            col.radius = 0.1f;
-            col.center = Vector3.up * 0.05f;
+            col.radius = 0.13f;
+            col.center = Vector3.up * 0.06f;
             MakeGrabbable(go, ItemKind.Tinder, 0.1f);
             return go;
         }
@@ -171,6 +173,22 @@ namespace Forage
                 ? "Red aggregate berries like raspberries are among the safest wild foods. Sweet smell, familiar shape — a forager's friend."
                 : "WHITE berries are almost always toxic — baneberry can stop a heart. Rule of thumb: white and yellow berries, leave them be.";
             return go;
+        }
+
+        static Material _tinderMaterial;
+
+        /// <summary>Golden straw that reads against green and brown ground. Same shader as the scene material.</summary>
+        static Material TinderMaterial
+        {
+            get
+            {
+                if (_tinderMaterial == null)
+                {
+                    _tinderMaterial = new Material(ForageAssets.Instance.tinderStraw) { name = "Tinder (runtime)" };
+                    _tinderMaterial.SetColor("_BaseColor", new Color(0.98f, 0.82f, 0.36f));
+                }
+                return _tinderMaterial;
+            }
         }
 
         static Material _flintMaterial;

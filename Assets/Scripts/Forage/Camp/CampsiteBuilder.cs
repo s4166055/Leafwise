@@ -263,6 +263,17 @@ namespace Forage
                 var tinder = ItemFactory.TinderBundle(forest.seed + 300 + i);
                 tinder.transform.position = CampSpot(2f, forest.campRadius + 4f);
             }
+
+            // One starter bundle beside the ring, on the far side from the flints.
+            // Headset testers could not find any of the scattered ones, and without
+            // tinder the flints only ever make sparks. Placed after the loop so the
+            // scattered bundles keep their positions.
+            if (FirePit != null)
+            {
+                var starter = ItemFactory.TinderBundle(forest.seed + 399);
+                Vector3 p = FirePit.transform.position + new Vector3(-0.15f, 0f, -0.8f);
+                PlaceOnGround(starter.transform, p.x, p.z, forest, 0.12f);
+            }
         }
     }
 }
