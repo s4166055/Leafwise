@@ -219,7 +219,48 @@ namespace Forage.EditorTools
                     t.gameObject.SetActive(false);
 
             LightenComfortVignette(rig);
+            GrabsComeToHand(rig);
             return rig;
+        }
+
+        /// <summary>
+        /// Far grabs (ray or pinch-at-a-distance) pull the object into your hand
+        /// instead of leaving it hanging at the end of the ray, so a mushroom or
+        /// fish picked up from afar can be brought to your mouth. Carried over
+        /// from the environment branch, where it was set on the old rig's
+        /// controller interactors only; this applies it to hands as well.
+        /// </summary>
+        public static void GrabsComeToHand(GameObject rig)
+        {
+            foreach (var nf in rig.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.Interactors.NearFarInteractor>(true))
+            {
+                nf.farAttachMode = UnityEngine.XR.Interaction.Toolkit.Attachment.InteractorFarAttachMode.Near;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(nf);
+            }
+        }
+
+        /// <summary>
+        /// Re-applies the rig settings above to the saved Forage scene without
+        /// rebuilding it. Also runs headless:
+        /// Unity.exe -batchmode -projectPath . -executeMethod
+        ///   Forage.EditorTools.ForageSceneBuilder.ApplyRigSettingsToScene -quit
+        /// </summary>
+        [MenuItem("Forage/Apply Rig Settings To Scene")]
+        public static void ApplyRigSettingsToScene()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var rig = scene.GetRootGameObjects().FirstOrDefault(g => g.name == "XR Origin Rig");
+            if (rig == null)
+            {
+                Debug.LogError("[Forage] Apply rig settings: no 'XR Origin Rig' in " + ScenePath);
+                return;
+            }
+            LightenComfortVignette(rig);
+            GrabsComeToHand(rig);
+            int interactors = rig.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.Interactors.NearFarInteractor>(true).Length;
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[Forage] Rig settings applied: vignette 0.9, far grabs come to hand on {interactors} interactor(s). Scene saved.");
         }
 
         /// <summary>

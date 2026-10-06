@@ -154,7 +154,7 @@ namespace Forage
 
                     var shroom = ItemFactory.Mushroom(forest.seed + 600 + s * 100 + i,
                         sp.name, sp.fact, sp.poison, sp.cap, sp.funnel);
-                    shroom.transform.position = pos + Vector3.up * 0.05f;
+                    shroom.transform.position = pos;
                     shroom.transform.rotation = Quaternion.Euler(0, (float)rand.NextDouble() * 360f, 0);
                     shroom.GetComponent<Mushroom>().habitatNote = sp.where;
                     placed++;
