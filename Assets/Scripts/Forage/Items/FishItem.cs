@@ -4,8 +4,9 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 namespace Forage
 {
     /// <summary>
-    /// A caught fish. Eat it raw and risk your stomach — or roast it by the
-    /// fire (Cookable) for a proper meal.
+    /// A caught fish. Eat it raw and risk your stomach — or spear it on a
+    /// skewer and roast it over the fire (Cookable) for a proper meal. It can
+    /// be eaten straight off the skewer.
     /// </summary>
     public class FishItem : MonoBehaviour
     {
@@ -15,6 +16,11 @@ namespace Forage
         XRGrabInteractable _grab;
         Cookable _cookable;
         float _eatTimer;
+
+        /// <summary>The skewer this fish is on, if any.</summary>
+        public Skewer OnSkewer { get; private set; }
+        public bool IsSkewered => OnSkewer != null;
+        public void MarkSkewered(Skewer s) => OnSkewer = s;
 
         void Awake()
         {
@@ -27,7 +33,9 @@ namespace Forage
             var gm = GameManager.Instance;
             if (gm == null || gm.playerHead == null) return;
 
-            bool held = _grab != null && _grab.isSelected;
+            // held directly, or held by its skewer
+            bool held = (_grab != null && _grab.enabled && _grab.isSelected) ||
+                        (OnSkewer != null && OnSkewer.HeldByHand);
             bool atMouth = Vector3.Distance(transform.position, gm.playerHead.position) < eatDistance;
 
             if (held && atMouth)

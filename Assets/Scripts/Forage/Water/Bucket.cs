@@ -14,7 +14,7 @@ namespace Forage
     ///         the fuller it is, the less tilt that takes. Jerky movement
     ///         (sudden starts/stops) sloshes it the same way, so carry it
     ///         smoothly and don't fill it to the brim.
-    /// Boil:   seat it on the bucket stand beside the burning campfire.
+    /// Boil:   hang it on the hook of the tripod over the burning campfire.
     /// Drink:  raise the rim to your mouth, or hold it near your face and
     ///         press the drink button (B / Y). Untreated water hydrates you
     ///         but makes you sick and lose fluid faster.
@@ -59,8 +59,9 @@ namespace Forage
         public int Percent => Mathf.RoundToInt(fill * 100f);
         public bool IsEmpty => fill < 0.02f;
         public bool HeldByHand => PlayerHands.IsHandHeld(_grab);
-        public bool OnStand => BucketStand.Instance != null && BucketStand.Instance.Holds(this);
-        public bool IsBoiling => OnStand && FirePit.Instance != null && FirePit.Instance.IsLit && !IsEmpty && !boiled;
+        /// <summary>Hanging on the campfire tripod's hook.</summary>
+        public bool OnHook => CampfireRig.Instance != null && CampfireRig.Instance.HoldsBucket(this);
+        public bool IsBoiling => OnHook && FirePit.Instance != null && FirePit.Instance.IsLit && !IsEmpty && !boiled;
         public Vector3 RimCenter => transform.TransformPoint(0f, RimY, 0f);
 
         XRGrabInteractable _grab;
@@ -194,7 +195,9 @@ namespace Forage
             if (dt <= 0f) return;
             _hintCooldown -= dt;
 
-            TrackAcceleration(dt);
+            // the hook snaps the bucket into place in one frame; that jump is not a slosh
+            if (OnHook) { _accel = Vector3.zero; _haveLast = false; }
+            else TrackAcceleration(dt);
             Scoop(dt);
             Spill(dt);
             Boil(dt);
@@ -342,7 +345,7 @@ namespace Forage
 
         void Boil(float dt)
         {
-            bool onStand = OnStand;
+            bool onStand = OnHook;
             var fire = FirePit.Instance;
             bool fireLit = fire != null && fire.IsLit;
 
@@ -454,7 +457,7 @@ namespace Forage
                 ForageEvents.RaiseSignal("drank-dirty-water");
                 FactCard.Show("Untreated water…",
                     "Pond water carries bacteria and parasites. It wets your mouth, but the stomach " +
-                    "upset makes you lose fluid FASTER. Boil it on the stand by the fire first.", good: false);
+                    "upset makes you lose fluid FASTER. Hang it over the fire and boil it first.", good: false);
             }
             else
             {
@@ -522,7 +525,7 @@ namespace Forage
             var gm = GameManager.Instance;
             bool near = gm != null && gm.playerHead != null &&
                         Vector3.Distance(gm.playerHead.position, transform.position) < 1.6f;
-            bool show = HeldByHand || (near && (OnStand || !IsEmpty));
+            bool show = HeldByHand || (near && (OnHook || !IsEmpty));
             _label.enabled = show;
             if (!show) return;
 
@@ -553,8 +556,8 @@ namespace Forage
 
     /// <summary>
     /// Grab interactable for the bucket: hands hold it by the handle (so it
-    /// hangs naturally and tilts with your wrist), while the stand's socket
-    /// seats it by its base.
+    /// hangs naturally and tilts with your wrist), and the campfire tripod's
+    /// hook hangs it by the same handle.
     /// </summary>
     public class BucketGrabInteractable : XRGrabInteractable
     {
@@ -563,8 +566,9 @@ namespace Forage
 
         public override Transform GetAttachTransform(UnityEngine.XR.Interaction.Toolkit.Interactors.IXRInteractor interactor)
         {
-            if (interactor is UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor && baseAttach != null)
-                return baseAttach;
+            // hands hold it by the handle, and the tripod's hook hangs it by the handle too
+            if (interactor is UnityEngine.XR.Interaction.Toolkit.Interactors.XRSocketInteractor)
+                return handleAttach != null ? handleAttach : baseAttach;
             if (handleAttach != null) return handleAttach;
             return base.GetAttachTransform(interactor);
         }

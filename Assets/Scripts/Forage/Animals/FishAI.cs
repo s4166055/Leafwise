@@ -301,6 +301,13 @@ namespace Forage
             if (Water != null && Water.InsideFootprint(p, -0.6f)) Water.Ripple(p, 0.01f);
         }
 
+        /// <summary>Speared on a skewer: it stops being an animal and becomes food on a stick.</summary>
+        public void Impale()
+        {
+            Die();
+            enabled = false;   // no more physics-flag management; the skewer owns it now
+        }
+
         void Die()
         {
             state = State.Dead;

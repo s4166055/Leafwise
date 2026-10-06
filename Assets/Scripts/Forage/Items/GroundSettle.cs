@@ -4,15 +4,25 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 namespace Forage
 {
     /// <summary>
-    /// Makes dropped items come to rest instead of rolling away forever.
+    /// Makes dropped items come to rest instead of rolling away forever, and
+    /// keeps them from being flung out of the world.
     ///
     /// PhysX has friction (which stops sliding) but no ROLLING resistance, so
-    /// any round collider on even a gentle slope keeps rolling — on this
-    /// terrain the tinder, flint and the pot used to end up 20–60 m from camp.
-    /// While an item is resting on static ground (terrain, rocks) and nobody is
-    /// holding it, this applies rolling resistance and, once it is nearly still,
-    /// puts it to sleep. In the air (thrown) or in water it does nothing, so
-    /// throws and floating behave exactly as before.
+    /// any round collider on even a gentle slope keeps rolling. The class fix
+    /// (damping + a grippy material in <see cref="ItemFactory.MakeGrabbable"/>)
+    /// slows that down but does not stop it: with only that fix, 28 sticks,
+    /// branches, tinder and leaf bundles were still creeping 1–4 m downhill
+    /// 15 s after they had been dropped. This works alongside that fix. While
+    /// an item rests on static ground (terrain, rocks) and nobody is holding
+    /// it, this applies rolling resistance and, once it is nearly still, puts
+    /// it to sleep. In the air (thrown) or in water it does nothing, so throws
+    /// and floating behave exactly as before.
+    ///
+    /// It also caps speed. A velocity-tracked item whose hand target jumps (a
+    /// far grab, a teleport, sprinting at 16 m/s while holding it) is given a
+    /// velocity of distance/frame, which can be hundreds of m/s. Released at
+    /// that speed, or knocked by something moving that fast, it left the 144 m
+    /// map and fell forever.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class GroundSettle : MonoBehaviour
@@ -24,6 +34,9 @@ namespace Forage
         public float settleSpeed = 0.15f;
         public float settleSpin = 1.5f;
         public float settleSeconds = 0.25f;
+
+        /// <summary>Speed cap for loose items (m/s). Also used for fish and crabs.</summary>
+        public const float MaxSpeed = 20f;
 
         static PhysicsMaterial _grip;
         /// <summary>Grippy, barely-bouncy material for hand-held props.</summary>
@@ -57,9 +70,9 @@ namespace Forage
             _grab = GetComponent<XRGrabInteractable>();
             // Overlap correction (e.g. the player's body teleporting onto a stick) used to fling
             // items tens of metres into the air; push them out gently instead, and cap speed
-            // well above any real throw.
+            // above any real throw (a hard overarm throw is ~15 m/s).
             _rb.maxDepenetrationVelocity = 2f;
-            _rb.maxLinearVelocity = 25f;
+            _rb.maxLinearVelocity = MaxSpeed;
             foreach (var c in GetComponents<Collider>())
                 if (!c.isTrigger && c.sharedMaterial == null) c.sharedMaterial = Grip;
         }

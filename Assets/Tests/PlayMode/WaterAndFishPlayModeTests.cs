@@ -92,9 +92,9 @@ namespace Forage.Tests
             var p = b.transform.position;
             Assert.That(Mathf.Abs(p.y - forest.HeightAt(p.x, p.z)), Is.LessThan(0.3f), "bucket is not on the ground");
             Assert.That(new Vector2(p.x, p.z).magnitude, Is.LessThan(forest.campRadius));
-            Assert.That(BucketStand.Instance, Is.Not.Null);
-            Assert.That(Vector3.Distance(BucketStand.Instance.transform.position, FirePit.Instance.transform.position),
-                Is.LessThan(1.3f), "stand must be inside the fire's heat");
+            Assert.That(Vector3.Distance(p, FirePit.Instance.transform.position), Is.LessThan(2f),
+                "the bucket should start beside the fire pit");
+            Assert.That(CampfireRig.Instance, Is.Not.Null, "campfire rig (hook + spit) missing");
         }
 
         [UnityTest]
@@ -161,17 +161,21 @@ namespace Forage.Tests
         }
 
         [UnityTest]
-        public IEnumerator Bucket_BoilsOnTheStandOnlyWhileTheFireBurns()
+        public IEnumerator Bucket_HangsOnTheHookAndBoilsOnlyWhileTheFireBurns()
         {
-            var stand = BucketStand.Instance;
+            var rig = CampfireRig.Instance;
             var pit = FirePit.Instance;
-            var b = FreshBucket(stand.Seat.position + Vector3.up * 0.02f);
+            var b = FreshBucket(rig.HookAttach.position + Vector3.down * 0.4f);
             yield return null;
             b.SetContents(0.3f, false);
             var grab = b.GetComponent<XRGrabInteractable>();
-            stand.Socket.interactionManager.SelectEnter((IXRSelectInteractor)stand.Socket, (IXRSelectInteractable)grab);
+            rig.Hook.interactionManager.SelectEnter((IXRSelectInteractor)rig.Hook, (IXRSelectInteractable)grab);
             yield return Wait(1f);
-            Assert.That(b.OnStand, Is.True);
+            Assert.That(b.OnHook, Is.True);
+            // hung by its handle: the bucket sits below the hook, upright, over the flames
+            Assert.That(b.transform.position.y, Is.LessThan(rig.HookAttach.position.y - 0.25f));
+            Assert.That(Vector3.Angle(b.transform.up, Vector3.up), Is.LessThan(5f));
+            Assert.That(b.spillRate, Is.EqualTo(0f), "the hook's snap must not slosh water out");
             if (!pit.IsLit)
             {
                 Assert.That(b.boilProgress, Is.EqualTo(0f), "must not boil without fire");
@@ -183,7 +187,7 @@ namespace Forage.Tests
             yield return Wait(15f); // 0.3 fill boils in ~13.4 s
             Assert.That(b.boiled, Is.True);
             Assert.That(b.contaminated, Is.False);
-            stand.Socket.interactionManager.SelectExit((IXRSelectInteractor)stand.Socket, (IXRSelectInteractable)grab);
+            rig.Hook.interactionManager.SelectExit((IXRSelectInteractor)rig.Hook, (IXRSelectInteractable)grab);
             Object.Destroy(b.gameObject);
         }
 
@@ -251,6 +255,55 @@ namespace Forage.Tests
         }
 
         [UnityTest]
+        public IEnumerator Skewer_SpearsFish_RoastsOnTheSpit_ButNotInTheAshes()
+        {
+            var rig = CampfireRig.Instance;
+            var pit = FirePit.Instance;
+            var fishes = Object.FindObjectsByType<FishItem>(FindObjectsSortMode.None).Where(f => !f.IsSkewered).Take(2).ToList();
+            Assert.That(fishes.Count, Is.EqualTo(2));
+            var skewer = Object.FindObjectsByType<Skewer>(FindObjectsSortMode.None).First(s => s.FishCount == 0);
+
+            // spear one fish: it stops being an animal and rides the stick
+            Assert.That(skewer.Spear(fishes[0]), Is.True);
+            yield return null;
+            Assert.That(fishes[0].IsSkewered, Is.True);
+            Assert.That(fishes[0].transform.parent, Is.EqualTo(skewer.transform));
+            Assert.That(fishes[0].GetComponent<Rigidbody>().isKinematic, Is.True);
+            var ai = fishes[0].GetComponent<FishAI>();
+            if (ai != null) Assert.That(ai.enabled, Is.False);
+
+            // the other fish is left lying right next to the fire
+            var loose = fishes[1];
+            var lr = loose.GetComponent<Rigidbody>();
+            var la = loose.GetComponent<FishAI>();
+            if (la != null) la.enabled = false;
+            lr.isKinematic = true;
+            var nearFire = pit.transform.position + new Vector3(0.3f, 0.05f, -0.3f);
+            lr.position = nearFire; loose.transform.position = nearFire;
+
+            // rest the skewer on the spit and light the fire
+            var sg = skewer.GetComponent<XRGrabInteractable>();
+            rig.Spit.interactionManager.SelectEnter((IXRSelectInteractor)rig.Spit, (IXRSelectInteractable)sg);
+            yield return Wait(0.5f);
+            Assert.That(skewer.OnSpit, Is.True);
+            Assert.That(Vector3.Angle(skewer.transform.right, rig.SpitAttach.right), Is.LessThan(5f), "skewer should lie across the forks");
+            if (!pit.IsLit)
+            {
+                pit.AddItem(ItemFactory.TinderBundle(3).GetComponent<SurvivalItem>());
+                pit.AddItem(ItemFactory.Stick(4, false).GetComponent<SurvivalItem>());
+                pit.AddHeat(60f); pit.AddHeat(60f);
+            }
+            Assert.That(pit.IsLit, Is.True);
+
+            var onStick = fishes[0].GetComponent<Cookable>();
+            yield return Wait(onStick.cookSeconds + 1.5f);
+            Assert.That(onStick.cooked, Is.True, $"skewered fish over the fire did not roast (progress {onStick.progress:F2})");
+            Assert.That(loose.GetComponent<Cookable>().progress, Is.EqualTo(0f), "a fish lying in the ashes must not cook");
+
+            rig.Spit.interactionManager.SelectExit((IXRSelectInteractor)rig.Spit, (IXRSelectInteractable)sg);
+        }
+
+        [UnityTest]
         public IEnumerator Pond_WoodFloatsAndDrifts_FlintSinks()
         {
             var w = WaterBody.Instance;
@@ -279,6 +332,11 @@ namespace Forage.Tests
             var hand = Object.FindObjectsByType<NearFarInteractor>(FindObjectsSortMode.None)
                 .First(i => i.handedness == InteractorHandedness.Right);
 
+            // bring it to the hand first, as a real grab would: selecting it from the pond 30 m
+            // away made velocity tracking fire it through camp, bowling the skewers and bucket
+            // off the map
+            rb.position = hand.transform.position; fish.transform.position = hand.transform.position;
+            rb.linearVelocity = Vector3.zero;
             hand.interactionManager.SelectEnter((IXRSelectInteractor)hand, (IXRSelectInteractable)grab);
             yield return null;
             yield return null;
@@ -311,6 +369,114 @@ namespace Forage.Tests
             yield return Wait(3f);
             Assert.That(fish.state, Is.EqualTo(FishAI.State.Swimming), "back in the water it should swim again");
             Assert.That(rb.useGravity, Is.False);
+        }
+
+        static float RealFloorBelow(Vector3 p)
+        {
+            float best = float.NegativeInfinity;
+            foreach (var h in Physics.RaycastAll(p + Vector3.up * 0.6f, Vector3.down, 3f, ~0, QueryTriggerInteraction.Ignore))
+                if (h.rigidbody == null && h.point.y > best) best = h.point.y;
+            return best;
+        }
+
+        [UnityTest]
+        public IEnumerator Crabs_WalkOnThePondFloor_Flee_CanBePickedUp_AndReturnToWater()
+        {
+            var crabs = Object.FindObjectsByType<CrabAI>(FindObjectsSortMode.None);
+            Assert.That(crabs.Length, Is.GreaterThanOrEqualTo(2), "the pond should have crabs");
+
+            // standing ON the real terrain mesh, not inside it or floating above it
+            foreach (var c in crabs)
+            {
+                float floor = RealFloorBelow(c.transform.position);
+                Assert.That(float.IsNegativeInfinity(floor), Is.False, c.name + " has no floor below it");
+                Assert.That(c.transform.position.y - floor, Is.InRange(-0.04f, 0.08f), c.name + " is not standing on the pond floor");
+                Assert.That(c.GetComponent<Collider>(), Is.Not.Null);
+            }
+
+            // they walk around by themselves (and their legs move while they do)
+            var start = crabs.ToDictionary(c => c, c => c.transform.position);
+            yield return Wait(6f);
+            Assert.That(crabs.Any(c => Vector3.Distance(c.transform.position, start[c]) > 0.1f), Is.True, "no crab walked anywhere in 6 s");
+
+            // a hand reaching close makes it scuttle away
+            var crab = crabs.First(c => c.state != CrabAI.State.Buried);
+            float r0 = crab.fleeRadius;
+            crab.fleeRadius = 1000f;           // "a hand is right next to it"
+            yield return null; yield return null;
+            Assert.That(crab.state, Is.EqualTo(CrabAI.State.Fleeing), "a crab should flee from a nearby hand");
+            crab.fleeRadius = r0;
+            crab.startles = 0;
+
+            // pick it up: it struggles in the hand
+            var grab = crab.GetComponent<XRGrabInteractable>();
+            var hand = Object.FindObjectsByType<NearFarInteractor>(FindObjectsSortMode.None)
+                .First(i => i.handedness == InteractorHandedness.Right);
+            crab.transform.position = hand.transform.position;   // reach it first, as a real grab would
+            hand.interactionManager.SelectEnter((IXRSelectInteractor)hand, (IXRSelectInteractable)grab);
+            yield return null; yield return null;
+            Assert.That(crab.state, Is.EqualTo(CrabAI.State.Held));
+            var leg = crab.transform.Find("Leg0");
+            var leg0 = leg.localRotation;
+            yield return Wait(0.2f);
+            Assert.That(Quaternion.Angle(leg.localRotation, leg0), Is.GreaterThan(1f), "its legs should wave while held");
+
+            // drop it on dry land at camp, a metre up
+            hand.interactionManager.SelectExit((IXRSelectInteractor)hand, (IXRSelectInteractable)grab);
+            var forest = ForestGenerator.Instance;
+            var dropAt = new Vector3(3f, forest.HeightAt(3f, 2f) + 1f, 2f);
+            var rb = crab.GetComponent<Rigidbody>();
+            rb.position = dropAt; crab.transform.position = dropAt;
+            rb.linearVelocity = Vector3.zero;
+            yield return new WaitForFixedUpdate();
+            yield return null;
+            Assert.That(crab.state, Is.EqualTo(CrabAI.State.Falling));
+            Assert.That(rb.isKinematic, Is.False, "a dropped crab must fall, not freeze in mid-air");
+            yield return Wait(4f);
+            Assert.That(crab.state, Is.Not.EqualTo(CrabAI.State.Falling), "it should land and recover");
+            Assert.That(crab.transform.position.y, Is.LessThan(dropAt.y - 0.5f), "it should have fallen to the ground");
+
+            // ...and head back toward the pond
+            Vector2 pc = crab.pondCenter;
+            float d0 = Vector2.Distance(new Vector2(crab.transform.position.x, crab.transform.position.z), pc);
+            yield return Wait(4f);
+            float d1 = Vector2.Distance(new Vector2(crab.transform.position.x, crab.transform.position.z), pc);
+            Assert.That(d1, Is.LessThan(d0 - 0.3f), $"a crab on land should walk back toward the water ({d0:F1} -> {d1:F1} m)");
+        }
+
+        [UnityTest]
+        public IEnumerator Items_CannotBeFlungOffTheMap_AndAreRecoveredIfLost()
+        {
+            // Regression: a velocity-tracked item whose hand target jumped got hundreds of m/s,
+            // left the 144 m map, and the rescue net then "recovered" it to a point in the air over
+            // the void, so it fell and was recovered forever (both skewers, the bucket, a branch).
+            var forest = ForestGenerator.Instance;
+            float edge = forest.worldSize * 0.5f;
+            var stick = Object.FindObjectsByType<SurvivalItem>(FindObjectsSortMode.None)
+                .First(i => i.kind == ItemKind.Stick && i.transform.parent == null
+                            && !i.GetComponent<Rigidbody>().isKinematic
+                            && new Vector2(i.transform.position.x, i.transform.position.z).magnitude < forest.campRadius + 6f);
+            var rb = stick.GetComponent<Rigidbody>();
+            Vector3 home = stick.transform.position;
+
+            rb.WakeUp();
+            rb.linearVelocity = new Vector3(300f, 60f, 0f);
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            Assert.That(rb.linearVelocity.magnitude, Is.LessThanOrEqualTo(GroundSettle.MaxSpeed + 0.5f), "item speed must be capped");
+
+            // now lose it off the edge of the map entirely
+            int rescues0 = SurvivalItem.RescueCount;
+            var lost = new Vector3(edge + 15f, 8f, 0f);
+            rb.linearVelocity = Vector3.zero;
+            rb.position = lost; stick.transform.position = lost;
+            yield return Wait(4f);
+            Vector3 p = stick.transform.position;
+            Assert.That(Mathf.Abs(p.x) < edge && Mathf.Abs(p.z) < edge, Is.True, $"not brought back onto the map: {p}");
+            float ground = forest.HeightAt(p.x, p.z);
+            Assert.That(p.y, Is.InRange(ground - 0.3f, ground + 1.5f), "recovered onto the ground");
+            Assert.That(SurvivalItem.RescueCount - rescues0, Is.EqualTo(1), "recovered once, not in a loop");
+            Assert.That(Vector3.Distance(p, home), Is.LessThan(25f), "returned to where it last rested");
         }
     }
 }

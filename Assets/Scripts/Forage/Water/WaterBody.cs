@@ -290,6 +290,7 @@ namespace Forage
         /// <summary>How strongly an object floats (1 = neutral). Below 1 it sinks.</summary>
         float BuoyancyFor(Rigidbody rb)
         {
+            if (rb.GetComponent<CrabAI>() != null) return 0.5f;   // crabs sink back to the bed
             var bucket = rb.GetComponent<Bucket>();
             if (bucket != null) return Mathf.Lerp(1.5f, 0.55f, bucket.Fill);
             var item = rb.GetComponent<SurvivalItem>();

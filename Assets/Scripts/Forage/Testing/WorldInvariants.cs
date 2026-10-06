@@ -182,15 +182,40 @@ namespace Forage.Testing
                 r.Check(bp.y > bGround - 0.1f && bp.y < bGround + 0.6f, "Bucket rests on the ground",
                         $"y {bp.y:F2}, ground {bGround:F2}");
             }
-            var stand = Object.FindFirstObjectByType<BucketStand>();
-            float standDist = stand != null && pit != null ? Vector3.Distance(stand.transform.position, pit.transform.position) : -1f;
-            r.Check(stand != null && stand.Socket != null, "Bucket stand with a socket exists");
-            r.Check(standDist > 0f && standDist < 1.3f, "Bucket stand is beside the fire pit (within its heat)",
-                    $"{standDist:F2} m");
+            var rig = Object.FindFirstObjectByType<CampfireRig>();
+            r.Check(rig != null && rig.Hook != null && rig.Spit != null, "Campfire rig with a bucket hook and a skewer spit exists");
+            if (rig != null && pit != null && rig.HookAttach != null && rig.SpitAttach != null)
+            {
+                Vector3 hk = rig.HookAttach.position - pit.transform.position;
+                Vector3 sp = rig.SpitAttach.position - pit.transform.position;
+                r.Check(new Vector2(hk.x, hk.z).magnitude < 0.3f && hk.y > 0.6f && hk.y < 1.2f,
+                        "Bucket hook hangs over the flames", $"hook {hk.y:F2} m above the pit, {new Vector2(hk.x, hk.z).magnitude:F2} m off centre");
+                r.Check(new Vector2(sp.x, sp.z).magnitude < 0.4f && sp.y > 0.3f && sp.y < 0.8f,
+                        "Spit rests a skewer over the flames", $"spit {sp.y:F2} m above the pit");
+            }
+            int skewers = Object.FindObjectsByType<Skewer>(FindObjectsSortMode.None).Length;
+            r.Check(skewers >= 1, "Roasting skewers are available at camp", skewers + " skewers");
+            r.Check(Object.FindFirstObjectByType<HandDrinking>() != null, "Drink-button handler is running");
             var fishes = Object.FindObjectsByType<FishAI>(FindObjectsSortMode.None);
             r.Check(fishes.Length >= 5, "Pond fish are alive (FishAI)", fishes.Length + " fish");
             r.Check(fishes.All(f => !f.GetComponent<Rigidbody>().isKinematic),
                     "Fish are dynamic bodies (never frozen kinematic)");
+            var crabs = Object.FindObjectsByType<CrabAI>(FindObjectsSortMode.None);
+            r.Check(crabs.Length >= 2, "Pond crabs are alive (CrabAI)", crabs.Length + " crabs");
+            r.Check(crabs.All(c => c.GetComponent<Collider>() != null && c.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>() != null),
+                    "Crabs can be touched and picked up (collider + grab)");
+            r.Check(crabs.All(c => c.transform.Cast<Transform>().Count(t => t.name.StartsWith("Leg")) == 8),
+                    "Crabs have eight legs");
+            foreach (var c in crabs)
+            {
+                Vector3 cp = c.transform.position;
+                float floor = float.NegativeInfinity;
+                foreach (var h in Physics.RaycastAll(cp + Vector3.up * 0.6f, Vector3.down, 3f, ~0, QueryTriggerInteraction.Ignore))
+                    if (h.rigidbody == null && h.point.y > floor) floor = h.point.y;
+                r.Check(!float.IsNegativeInfinity(floor) && cp.y > floor - 0.04f && cp.y < floor + 0.15f,
+                        c.name + " stands on the real pond floor (not sunk into it)",
+                        float.IsNegativeInfinity(floor) ? "no floor below" : $"y {cp.y:F2}, floor {floor:F2}");
+            }
 
             r.Section("Habitat zones");
             r.Check(Habitat.ZoneAt(0f, 0f) == Habitat.Zone.Camp, "Origin classifies as the Camp zone",
