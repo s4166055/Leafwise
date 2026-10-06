@@ -21,6 +21,8 @@ namespace Forage
         }
 
         Image _vignette;
+        Image _fade;
+        float _fadeLevel, _fadeTarget, _fadeSpeed;
         Color _flashColor;
         float _flashStrength;
         Transform _head;
@@ -52,6 +54,32 @@ namespace Forage
             _vignette.sprite = Sprite.Create(MakeRadialTexture(), new Rect(0, 0, 256, 256), Vector2.one * 0.5f);
             _vignette.color = Color.clear;
             _vignette.raycastTarget = false;
+
+            // full-view fade to black (sleeping / skipping the night). Oversized so
+            // it covers the whole field of view from half a metre in front of the eyes.
+            var fadeGo = new GameObject("Fade", typeof(Image));
+            fadeGo.transform.SetParent(rect, false);
+            var fadeRect = fadeGo.GetComponent<RectTransform>();
+            fadeRect.anchorMin = new Vector2(-4f, -4f);
+            fadeRect.anchorMax = new Vector2(5f, 5f);
+            fadeRect.offsetMin = Vector2.zero;
+            fadeRect.offsetMax = Vector2.zero;
+            _fade = fadeGo.GetComponent<Image>();
+            _fade.color = new Color(0f, 0f, 0f, 0f);
+            _fade.raycastTarget = false;
+            _fade.enabled = false;
+        }
+
+        /// <summary>0 = clear, 1 = fully black.</summary>
+        public static float FadeLevel => Instance != null ? Instance._fadeLevel : 0f;
+
+        /// <summary>Fade the whole view to <paramref name="target"/> (0 clear .. 1 black) over some seconds.</summary>
+        public static void FadeTo(float target, float seconds)
+        {
+            var inst = Instance;
+            if (inst == null) return;
+            inst._fadeTarget = Mathf.Clamp01(target);
+            inst._fadeSpeed = seconds <= 0.01f ? 1000f : Mathf.Abs(inst._fadeTarget - inst._fadeLevel) / seconds;
         }
 
         static Texture2D MakeRadialTexture()
@@ -89,6 +117,14 @@ namespace Forage
 
         void LateUpdate()
         {
+            if (!Mathf.Approximately(_fadeLevel, _fadeTarget))
+                _fadeLevel = Mathf.MoveTowards(_fadeLevel, _fadeTarget, _fadeSpeed * Time.unscaledDeltaTime);
+            if (_fade != null)
+            {
+                _fade.enabled = _fadeLevel > 0.002f;
+                if (_fade.enabled) _fade.color = new Color(0f, 0f, 0f, _fadeLevel);
+            }
+
             if (_head == null)
             {
                 var cam = Camera.main;

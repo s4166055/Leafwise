@@ -13,6 +13,11 @@ namespace Forage
         public float eatDistance = 0.30f;
         public float eatHoldSeconds = 0.6f;
 
+        /// <summary>Raw-fish illness (tunable): food gained, sickness length, instant health hit.</summary>
+        public const float RawFoodValue = 12f;
+        public const float PoisoningSeconds = 75f;
+        public const float PoisoningHealthHit = 8f;
+
         XRGrabInteractable _grab;
         Cookable _cookable;
         float _eatTimer;
@@ -66,16 +71,21 @@ namespace Forage
                     "Cooking fish kills parasites and bacteria and makes protein easier to digest. " +
                     "In survival, always cook your catch when you can.", good: true);
                 ForageEvents.RaiseSignal("ate-cooked-fish");
+                gm.CompleteObjective("fish");
             }
             else
             {
-                gm.vitals.Eat(15f, poisonous: false);
-                gm.vitals.MakeSick(45f);
-                gm.vitals.Damage(4f, "ate-raw-fish");
-                FactCard.Show("Raw fish… risky.",
-                    "Freshwater fish often carry parasites — eating them raw can make you sick. " +
-                    "Roast your catch by the fire first.", good: false);
+                // raw fish: a little food, but parasites and bacteria make you properly ill —
+                // an immediate hit to health, then a spell of vomiting and cramps that drains
+                // water, food AND health until it passes
+                gm.vitals.Eat(RawFoodValue, poisonous: false);
+                gm.vitals.ApplyFoodPoisoning(PoisoningSeconds, PoisoningHealthHit, "ate-raw-fish");
+                FactCard.Show("Raw fish — you feel sick!",
+                    "Raw freshwater fish carries parasites and bacteria. Your stomach cramps: you'll lose health, " +
+                    "and burn through water and food much faster for a while. Roast your catch on a skewer first.",
+                    good: false);
                 ForageEvents.RaiseSignal("ate-raw-fish");
+                ForageEvents.RaiseHint("ate-raw-fish");
             }
             Destroy(gameObject);
         }

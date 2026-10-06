@@ -50,6 +50,9 @@ namespace Forage
             { "drank-raw-water", new[]{ "That tasted… earthy.", "Raw pond water makes you lose fluid FASTER afterwards. Boil a bucketful instead." } },
             { "crab-pinch", new[]{ "Ouch! It pinched you.", "Pick crabs up from behind, away from the claws — or better, leave them be." } },
             { "fish-escaped", new[]{ "Splash — it got away!", "Fish are slippery. Grip it and carry it AWAY from the water before you let go." } },
+            { "ate-raw-fish", new[]{ "Ugh… that doesn't sit right.", "Raw fish carries parasites. You'll lose health and get thirsty and hungry fast — rest, drink boiled water, and roast fish on a skewer next time." } },
+            { "night-falls", new[]{ "The light's going…", "Night is cold. Stay by the fire, or crouch in the finished shelter (hold C at a desk) to sleep until morning." } },
+            { "sleep-ready", new[]{ "Cosy in here.", "Stay crouched in the shelter (keep holding C at a desk) and you'll sleep until morning — it warms you and restores health." } },
             { "shelter-branches-first", new[]{ "Leaves need something to rest on.", "Lean BRANCHES on the frame first — then cover them with leaf bundles." } },
         };
 
@@ -61,6 +64,8 @@ namespace Forage
             { "forage", "Pick a mushroom and read its tag. Brown or golden ones are your friends. Pale ones… are not." },
             { "shelter", "Lean 4 branches against the shelter frame at camp, then pile 3 leaf bundles on top." },
             { "wildlife", "Approach the rabbit or deer slowly — or freeze when a snake rears up. Calm wins." },
+            { "fish", "Reach into the pond and grab a fish, push a skewer into it, then rest the skewer across the forks over the burning fire. Eat it once it's cooked." },
+            { "dawn", "Get through the night: stay warm by the fire or sleep in your shelter. Hold your hand over your watch to skip to morning." },
             { "survive", "Night is coming. Keep the fire fed and the shelter ready — warmth is life out here." },
         };
 

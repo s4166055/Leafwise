@@ -264,9 +264,11 @@ Fish (7, `FishAI`, §15.4) and crabs (3, `CrabAI`, §16.4) — both simulate the
 2. Start a campfire (drill or flint)
 3. Boil pond water and drink it safely
 4. Eat a safe mushroom
-5. Build the shelter *(C7)*
-6. Observe wildlife without scaring it (rabbit gift **or** snake calm-freeze)
-7. Survive until nightfall *(C6 day-night)*
+5. Catch a fish and roast it on a skewer *(section 17)*
+6. Build the shelter *(C7)*
+7. Observe wildlife without scaring it (rabbit gift **or** snake calm-freeze)
+8. Survive until nightfall *(C6 day-night)*
+9. Make it through the night to sunrise *(section 17)*
 
 Completion → chime + haptic + toast card; the wrist watch always shows the current objective. `ForageEvents` is the decoupled hint/signal bus that the Scout companion (C7) will voice — hints already fire everywhere (`fire-no-tinder`, `wood-damp`, `strike-harder`, `about-to-drink-dirty`, `snake-freeze`, `rabbit-scared`, …).
 
@@ -655,6 +657,53 @@ The fish and crab tests also selected a creature from the pond 30 m away. Veloci
 - **PlayMode:** `Bucket_HangsOnTheHookAndBoilsOnlyWhileTheFireBurns`, `Skewer_SpearsFish_RoastsOnTheSpit_ButNotInTheAshes`, `Crabs_WalkOnThePondFloor_Flee_CanBePickedUp_AndReturnToWater` and `Items_CannotBeFlungOffTheMap_AndAreRecoveredIfLost` (speed is capped; an item lost off the edge comes back once, to where it last rested). Full suite: 19/19.
 - **EditMode:** 8/9. `QuestBuild_PreflightValidationPasses` fails on two OpenXR settings (controller profile, hand-tracking features) in `OpenXRPackageSettings.asset`, which Unity rewrote when the project opened. It is not a code issue: run **Forage ▸ Quest ▸ 1 - Configure XR and Player Settings**.
 - **WorldInvariants:** new checks that the rig exists, the hook and spit are over the flames, skewers exist, crabs have colliders and 8 legs, and every crab stands on the real pond floor.
+
+## 17. Day/night loop, sleeping, raw-fish illness and the fishing objective
+
+### 17.1 Why the old night felt wrong
+`DayNightCycle` was a single 10-minute arc: the sun fell from 38° to −14° and then **stayed below the horizon for good**. The light was already fading from about minute 5, full night began around minute 6.5, and from then on the main light was off (intensity 0), so it was pitch dark with no morning, no moon and no way back. The morning/afternoon ended up much shorter than "night", which never ended.
+
+### 17.2 The looping cycle (`Environment/DayNightCycle.cs`)
+- One loop = `cycleSeconds` = **1200 s (20 minutes)**. The session starts in mid-morning (phase 0.07, sun about 30° up, clock about 08:15).
+- The sun elevation comes from a smooth periodic curve (`SunElevation(phase)`, an `AnimationCurve` over key points, wrapped three times so it is seamless): sunrise at phase 0.935, noon (58°) at 0.25, sunset at 0.66. About **72% of the loop is daylight and 27% is night**, so a night lasts **about 5.5 minutes**, and dusk (15° to the horizon) takes about 2.4 minutes instead of a few seconds.
+- `ClockHours(phase)` maps this to a clock: sunrise 06:00, sunset 18:00. The wrist watch shows it (HH:MM, blue at night).
+- `isNight` is true while the sun is below the horizon. It drives `PlayerVitals.isNight` (warmth drain), crickets (fade in and out) and owls.
+- **Moonlight.** The URP asset disables additional lights, so there is only ONE realtime light. Below −3° sun elevation the same directional light becomes the moon: cool blue (0.55, 0.66, 0.95), intensity up to 0.3, high in the sky and moving across the night. Ambient and fog get a brighter blue night palette so the world is dim but readable. The procedural skybox is drawn from the light's direction, so its exposure and sun disc are faded out before the swap, using a runtime copy of the skybox material.
+- Events: `nightfall` completes "survive" and shows a "Night falls" card the first time; `dawn` completes the new **"Make it through the night to sunrise"** objective and shows the objectives summary (this card used to appear at nightfall).
+
+### 17.3 Getting back to morning
+`DayNightCycle.SkipToMorning(bool sleeping)` (only at night): fades the view to black (`ScreenFeedback.FadeTo`), runs the clock forward to early morning (phase 0.03 of the next day) over 3.5 s, applies `PlayerVitals.PassTheNight(sleeping)`, then fades back in. A night costs 12 water and 12 food. Sleeping also gives +45 warmth and +25 health.
+
+Two ways to trigger it:
+1. **Sleep in the finished shelter** (`Camp/ShelterRest.cs`). At night, **crouch inside the completed shelter** for about 3.5 s: in the headset, physically crouch (head below 1.15 m above the ground, within 1.3 m of the rest spot; kneeling or sitting on the floor also works); at a desk or in the XR simulator, hold **C** or **Left Ctrl** while standing inside the shelter. Seated headset play may already be below the threshold, so use the watch skip if it triggers by accident or never triggers. The decision is a pure function, `ShelterRest.Evaluate(...)`: Ok / NotNight / ShelterIncomplete / TooFar / StandingUp / Busy.
+2. **The wrist watch** (`UI/WristHud.cs`). At night, hold your free (right) hand within 15 cm of the watch for 1.5 s (controller or tracked palm). A thin bar fills while you hold, and the objective text tells you to keep your hand there. **N** does the same at a desk. It only passes the time: no warmth or health bonus. There is no clickable button because the scene has no UI event system, so a hold gesture is used instead.
+
+Skipping advances the sun, not `Time.time`, so fire timers do not change (the fire keeps burning for the real elapsed seconds).
+
+Also fixed: the shelter's warmth spot used an unrotated world offset although the shelter is built turned 155°; it now uses `transform.TransformPoint`.
+
+### 17.4 Raw fish makes you ill (`Items/FishItem.cs`, `Core/PlayerVitals.cs`)
+Eating a fish that is not cooked: +12 food, an immediate −8 health, and `PlayerVitals.ApplyFoodPoisoning(75 s, 8, "ate-raw-fish")`. While it lasts: sickness (hydration drains ×2.5, health drains about 30/min), and **energy (food) drains ×3**, so you get thirstier and hungrier and lose health. A new card ("Raw fish — you feel sick!") and a Scout hint explain it. The numbers are constants on `FishItem` (`RawFoodValue`, `PoisoningSeconds`, `PoisoningHealthHit`) and `PlayerVitals.poisonEnergyDrainMultiplier`. Cooked fish is unchanged (+50 food, no penalty).
+
+### 17.5 Fishing objective
+New objective **"Catch a fish and roast it on a skewer"** (after "Eat a safe mushroom"). It completes when a *cooked* fish is eaten (raw does not count). Scout has a tip for it and for "dawn".
+
+### 17.6 Tests
+- **EditMode** (`DayNightEditModeTests`, 11): start in morning, periodic, night is 15–35% of the loop, slow dusk, smooth sun (no jumps), sunrise/sunset on the horizon, skip lands in early morning, clock runs forward and hits 06:00/18:00, `FormatClock`, the sleeping rule, the watch reach.
+- **PlayMode** (`DayNightPlayModeTests`, 11, plus `ShelterPlayModeTests`, see 17.7): bright start, moonlit night (intensity 0.15–0.4, bluish, ambient not black, sky dimmed, "survive"), loops to day two with "dawn", light changes without jumps over a whole loop, watch skip (fades, wakes in the morning, costs water and food, no healing), sleep (warms and heals), shelter sleep rules, raw fish effects (health, hungrier, thirstier, hint, not the objective), poisoning passes, cooked fish completes "fish", objective order, wrist clock, and a render of the camp at 8 times of day (`Temp/claude-shots/daynight-*.png`) that checks noon > dusk > night and that the night is not black.
+- **WorldInvariants:** the cycle drives the sun, loop length is 10–60 min, the session starts in bright morning, `ShelterRest` exists, the new objectives exist.
+- Not testable without a headset: the real wrist-hold gesture and real crouching; the logic behind both is unit tested.
+
+### 17.7 Shelter geometry fix (`Camp/Shelter.cs`)
+Building the shelter was reported as "nothing happens" and "the leaves stack instead of lying side by side". The drop logic was fine (a new test drops 4 branches and 3 bundles and they are all accepted), but the visuals were wrong:
+
+| Problem | Fix |
+|---|---|
+| The ribs leaned the wrong way: tilted −47°, so each rib's top ended about 2.85 m **behind** the ridge pole, in mid-air. | Ribs and thatch are now derived from one roof slope (ground at local z = −1.35, ridge at height 1.45, z = 0), so each rib leans onto the ridge. |
+| The thatch panels were tilted the opposite way to the roof and drawn with an alpha-cutout leaf card that only fills a small part of its quad, so they looked like thin strips piled up. | Three panels now tile up the slope, each covering a third of it, with a solid green material that is drawn on both sides (so it also roofs you from underneath). |
+| ProBuilder's plane width/length turned out swapped (panels were about 0.8 m wide and 2.2 m long). | Each panel is sized from its real mesh bounds: 2.2 m across the roof, one third of the slope along it. |
+
+New PlayMode test `ShelterPlayModeTests.Shelter_BuildsFromDroppedBranchesAndLeaves`: a leaf bundle before any branch is refused; 4 branches then 3 bundles are accepted; the objective completes; ribs lean onto the ridge; panels lie on the roof slope, tile with 0.5–0.85 m spacing and have the right size. It also renders the shelter to `Temp/claude-shots/shelter-*.png`.
 
 ---
 

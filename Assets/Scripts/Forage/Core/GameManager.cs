@@ -58,9 +58,11 @@ namespace Forage
             Objectives.Add(new Objective("fire", "Start a campfire with the hand drill"));
             Objectives.Add(new Objective("water", "Boil pond water and drink it safely"));
             Objectives.Add(new Objective("forage", "Eat a safe mushroom"));
+            Objectives.Add(new Objective("fish", "Catch a fish and roast it on a skewer"));
             Objectives.Add(new Objective("shelter", "Build the shelter"));
             Objectives.Add(new Objective("wildlife", "Observe wildlife without scaring it"));
             Objectives.Add(new Objective("survive", "Survive until nightfall"));
+            Objectives.Add(new Objective("dawn", "Make it through the night to sunrise"));
             ObjectivesChanged?.Invoke();
         }
 

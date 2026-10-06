@@ -40,6 +40,7 @@ namespace Forage
             site.transform.position = new Vector3(-3.2f, forest.HeightAt(-3.2f, 2.8f), 2.8f);
             site.transform.rotation = Quaternion.Euler(0, 155f, 0);
             var shelter = site.AddComponent<Shelter>();
+            site.AddComponent<ShelterRest>();
             shelter.Build(forest.barkMat, forest.broadleafCards != null && forest.broadleafCards.Length > 0
                 ? forest.broadleafCards[0] : ForageAssets.Instance.tinderStraw);
         }

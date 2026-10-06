@@ -217,6 +217,23 @@ namespace Forage.Testing
                         float.IsNegativeInfinity(floor) ? "no floor below" : $"y {cp.y:F2}, floor {floor:F2}");
             }
 
+            r.Section("Day, night and sleep");
+            var dn = Object.FindFirstObjectByType<DayNightCycle>();
+            r.Check(dn != null && dn.sun != null, "Day/night cycle drives the sun light");
+            if (dn != null && dn.sun != null)
+            {
+                r.Check(dn.cycleSeconds >= 600f && dn.cycleSeconds <= 3600f,
+                        "A full day loops in 10-60 minutes", dn.cycleSeconds + " s");
+                r.Check(!dn.isNight && dn.sun.intensity > 0.8f,
+                        "The session starts in bright morning light", $"night {dn.isNight}, sun {dn.sun.intensity:F2}, clock {dn.ClockString}");
+            }
+            var shelterRest = Object.FindFirstObjectByType<ShelterRest>();
+            r.Check(shelterRest != null && shelterRest.GetComponent<Shelter>() != null,
+                    "The shelter lets you sleep until morning (ShelterRest)");
+            var gmObj = GameManager.Instance;
+            r.Check(gmObj != null && gmObj.Objectives.Any(o => o.id == "fish") && gmObj.Objectives.Any(o => o.id == "dawn"),
+                    "Fishing and sunrise objectives exist");
+
             r.Section("Habitat zones");
             r.Check(Habitat.ZoneAt(0f, 0f) == Habitat.Zone.Camp, "Origin classifies as the Camp zone",
                     Habitat.ZoneAt(0f, 0f).ToString());
