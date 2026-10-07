@@ -47,7 +47,6 @@ namespace Forage
             // scooping threshold follows the generated pond surface
             if (ForestGenerator.Instance != null)
                 scoopMaxY = ForestGenerator.Instance.WaterLevel + scoopReach;
-            _rb = GetComponent<Rigidbody>();
 
             // water surface disc inside the pot rim
             _waterMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
@@ -138,18 +137,7 @@ namespace Forage
                     _waterSurface.transform.localScale = Vector3.one * Mathf.Lerp(1f, 0.55f, sip);
                 }
                 if (_drinkTimer >= drinkHoldSeconds)
-                {
-                    gm.vitals.Drink(45f, contaminated);
-                    ProceduralAudio.PlayAt(transform.position, ProceduralAudio.Gulp(), 0.9f);
-                    ScreenFeedback.Drink();
-                    Haptics.Pulse(0.25f, 0.12f);
-                    if (!contaminated)
-                    {
-                        gm.CompleteObjective("water");
-                        ForageEvents.RaiseSignal("drank-clean-water");
-                    }
-                    SetState(PotState.Empty);
-                }
+                    FinishDrink(gm, contaminated);
             }
             else
             {
@@ -159,6 +147,56 @@ namespace Forage
                     _waterSurface.transform.localScale = Vector3.one;
                 }
                 _drinkTimer = 0f;
+            }
+        }
+
+        void FinishDrink(GameManager gm, bool contaminated)
+        {
+            gm.vitals.Drink(45f, contaminated);
+            ProceduralAudio.PlayAt(transform.position, ProceduralAudio.Gulp(), 0.9f);
+            if (contaminated) ScreenFeedback.DrinkUntreated(); else ScreenFeedback.Drink();
+            Haptics.Pulse(0.25f, 0.12f);
+            if (!contaminated)
+            {
+                gm.CompleteObjective("water");
+                ForageEvents.RaiseSignal("drank-clean-water");
+            }
+            else ForageEvents.RaiseSignal("drank-dirty-water");
+            SetState(PotState.Empty);
+        }
+
+        /// <summary>Drink-button path: drink at once if the pot is held near the face.</summary>
+        public bool TryDrinkNow(float maxDistance = 0.55f)
+        {
+            var gm = GameManager.Instance;
+            if (gm == null || gm.playerHead == null || gm.vitals == null) return false;
+            if (state != PotState.DirtyWater && state != PotState.CleanWater) return false;
+            if (_grab == null || !_grab.isSelected) return false;
+            if (Vector3.Distance(transform.position, gm.playerHead.position) > maxDistance) return false;
+            FinishDrink(gm, state == PotState.DirtyWater);
+            return true;
+        }
+
+        float _received;
+
+        /// <summary>
+        /// Water poured in from the bucket (amount = fraction of a bucket).
+        /// About an eighth of a bucket fills the pot. Any untreated water
+        /// makes the whole pot untreated again.
+        /// </summary>
+        public void ReceiveWater(float amount, bool clean)
+        {
+            if (state == PotState.Boiling) { if (!clean) SetState(PotState.DirtyWater); return; }
+            if (state == PotState.CleanWater && clean) return;
+            if (state == PotState.CleanWater && !clean) { SetState(PotState.DirtyWater); return; }
+            if (state == PotState.DirtyWater) return;
+
+            _received += amount;
+            if (_received >= 0.12f)
+            {
+                _received = 0f;
+                SetState(clean ? PotState.CleanWater : PotState.DirtyWater);
+                ForageEvents.RaiseSignal("pot-filled-from-bucket");
             }
         }
 
@@ -196,45 +234,23 @@ namespace Forage
             }
         }
 
-        static bool OverPond(Vector3 p)
-        {
-            var w = PondWater.Instance;
-            return w != null && w.IsOverWater(p);
-        }
-
         /// <summary>
         /// Dip the pot down to the water and it fills: over the pond and within
-        /// scoopReach of the surface. (This was a trigger check that needed the
-        /// pot within 5 cm of a surface level with the bank, so it never filled.)
+        /// scoopReach of the (animated) surface. The original trigger check needed
+        /// the pot within 5 cm of a surface that sits level with the bank, a full
+        /// crouch to the floor, so headset testers could not fill it.
         /// </summary>
         void TryScoop()
         {
-            if (!OverPond(transform.position) || transform.position.y > scoopMaxY) return;
+            var w = WaterBody.Instance;
+            if (w == null || !w.InsideFootprint(transform.position)) return;
+            Vector3 p = transform.position;
+            if (p.y > w.SurfaceHeightAt(p.x, p.z) + scoopReach) return;
             SetState(PotState.DirtyWater);
-            PondWater.Splash(transform.position, 1f);
+            w.Splash(p, 1f);
             Haptics.Pulse(0.3f, 0.1f);
             ForageEvents.RaiseSignal("water-scooped");
-        }
-
-        Rigidbody _rb;
-
-        /// <summary>
-        /// The pond is about 3 m deep in the middle. A pot dropped in used to sink
-        /// out of reach for good; now it bobs at the surface.
-        /// </summary>
-        void FixedUpdate()
-        {
-            if (_rb == null || _rb.isKinematic) return;
-            if (_grab != null && _grab.isSelected) return;
-            var w = PondWater.Instance;
-            if (w == null || !w.IsOverWater(_rb.position)) return;
-
-            float depth = w.SurfaceY - (_rb.position.y + 0.04f);   // floats with its base just under the surface
-            if (depth <= 0f) return;
-            _rb.AddForce(Vector3.up * Physics.gravity.magnitude * (1f + Mathf.Clamp01(depth / 0.06f) * 1.5f),
-                ForceMode.Acceleration);
-            _rb.linearVelocity *= 0.9f;    // water drag
-            _rb.angularVelocity *= 0.9f;
+            ForageEvents.RaiseHint("water-scooped");
         }
     }
 }

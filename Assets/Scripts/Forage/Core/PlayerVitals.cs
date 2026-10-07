@@ -22,8 +22,17 @@ namespace Forage
         public float warmthDecayCold = 5.0f;   // when cold (night / no fire nearby)
         public float warmthRecoverFire = 25f;  // when near a lit fire
 
+        [Header("Untreated water")]
+        [Tooltip("Hydration drains this many times faster while untreated water is in your gut.")]
+        public float untreatedDrainMultiplier = 3f;
+        [Tooltip("Seconds of fast drain added per raw sip from the pond.")]
+        public float untreatedSecondsPerSip = 40f;
+        [Tooltip("If the fast-drain window stacks past this, you also get sick.")]
+        public float untreatedSickThreshold = 150f;
+
         [Header("State (read-only)")]
         public bool isSick;
+        public float untreatedUntil;
         public bool nearFire;
         public bool isNight;
 
@@ -32,13 +41,33 @@ namespace Forage
         public event Action<string> Harmed;
 
         float _sickUntil;
+        float _foodPoisonUntil;
+
+        [Header("Food poisoning (raw fish)")]
+        [Tooltip("Energy drains this many times faster while food poisoning lasts: you're emptied out.")]
+        public float poisonEnergyDrainMultiplier = 3f;
+
+        /// <summary>True while raw fish (or similar) is making you ill and hungrier.</summary>
+        public bool HasFoodPoisoning => Time.time < _foodPoisonUntil;
+        public float FoodPoisoningSecondsLeft => Mathf.Max(0f, _foodPoisonUntil - Time.time);
+
+        /// <summary>Current energy (food) drain multiplier.</summary>
+        public float EnergyDrainMultiplier => HasFoodPoisoning ? poisonEnergyDrainMultiplier : 1f;
+
+        /// <summary>True while untreated water is making you lose fluid faster.</summary>
+        public bool HasUntreatedWater => Time.time < untreatedUntil;
+        public float UntreatedSecondsLeft => Mathf.Max(0f, untreatedUntil - Time.time);
+
+        /// <summary>Current hydration drain multiplier (sickness and untreated water stack).</summary>
+        public float HydrationDrainMultiplier =>
+            (isSick ? 2.5f : 1f) * (HasUntreatedWater ? untreatedDrainMultiplier : 1f);
 
         void Update()
         {
             float dtMin = Time.deltaTime / 60f;
 
-            hydration = Mathf.Max(0, hydration - hydrationDecay * dtMin * (isSick ? 2.5f : 1f));
-            energy = Mathf.Max(0, energy - energyDecay * dtMin);
+            hydration = Mathf.Max(0, hydration - hydrationDecay * dtMin * HydrationDrainMultiplier);
+            energy = Mathf.Max(0, energy - energyDecay * dtMin * EnergyDrainMultiplier);
 
             if (nearFire)
                 warmth = Mathf.Min(100, warmth + warmthRecoverFire * dtMin);
@@ -69,9 +98,32 @@ namespace Forage
             if (contaminated)
             {
                 MakeSick(90f);
+                AddUntreated(60f);
                 Harmed?.Invoke("drank-dirty-water");
             }
             Changed?.Invoke(this);
+        }
+
+        /// <summary>
+        /// A cupped-hand sip straight from the pond. It DOES refill hydration
+        /// right now, but untreated water makes you lose fluid faster for a
+        /// while afterwards — and stacking too many sips makes you sick.
+        /// </summary>
+        public void DrinkRaw(float amount)
+        {
+            hydration = Mathf.Min(100, hydration + amount);
+            AddUntreated(untreatedSecondsPerSip);
+            if (UntreatedSecondsLeft > untreatedSickThreshold && !isSick)
+            {
+                MakeSick(60f);
+                Harmed?.Invoke("drank-too-much-untreated-water");
+            }
+            Changed?.Invoke(this);
+        }
+
+        void AddUntreated(float seconds)
+        {
+            untreatedUntil = Mathf.Min(Mathf.Max(Time.time, untreatedUntil) + seconds, Time.time + 240f);
         }
 
         public void Eat(float amount, bool poisonous)
@@ -96,10 +148,41 @@ namespace Forage
             Changed?.Invoke(this);
         }
 
+        /// <summary>
+        /// Raw or spoiled food: an immediate hit to health, then a spell of
+        /// sickness during which you lose fluid (thirstier) AND food (hungrier)
+        /// much faster, and health keeps draining until it passes.
+        /// </summary>
+        public void ApplyFoodPoisoning(float seconds, float healthHit, string reason)
+        {
+            _foodPoisonUntil = Mathf.Max(Time.time, _foodPoisonUntil) + seconds;
+            MakeSick(seconds);
+            health = Mathf.Max(5f, health - healthHit);
+            Harmed?.Invoke(reason);
+            Changed?.Invoke(this);
+        }
+
+        /// <summary>
+        /// Time passes while the player sleeps (or skips the night): the body
+        /// still uses up water and food. Sleeping in a shelter also warms and
+        /// heals; skipping from the watch only passes the hours.
+        /// </summary>
+        public void PassTheNight(bool sleeping)
+        {
+            hydration = Mathf.Max(0f, hydration - 12f);
+            energy = Mathf.Max(0f, energy - 12f);
+            if (sleeping)
+            {
+                warmth = Mathf.Min(100f, warmth + 45f);
+                health = Mathf.Min(100f, health + 25f);
+            }
+            Changed?.Invoke(this);
+        }
+
         public void MakeSick(float seconds)
         {
             isSick = true;
-            _sickUntil = Time.time + seconds;
+            _sickUntil = Mathf.Max(_sickUntil, Time.time + seconds);
         }
     }
 }

@@ -1,3 +1,8 @@
+// Compiles only once the Unity-MCP (IvanMurzak) package has resolved its NuGet
+// dependencies and set UNITY_MCP_READY. Without the guard, a pending package
+// update (0.88 -> 0.93) disables that package's assemblies and this file
+// breaks compilation of the whole Forage.Editor assembly.
+#if UNITY_MCP_READY
 using UnityEditor;
 using UnityEngine;
 using com.IvanMurzak.Unity.MCP;
@@ -46,3 +51,5 @@ namespace Forage.EditorTools
         }
     }
 }
+
+#endif

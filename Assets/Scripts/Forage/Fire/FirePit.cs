@@ -236,8 +236,11 @@ namespace Forage
         /// </summary>
         void ClearBurntFuel()
         {
+            // only the consumed fuel: the campfire rig (tripod, spit) also lives
+            // under the pit, and a bucket or skewer must never vanish with the ashes
             foreach (var used in GetComponentsInChildren<SurvivalItem>())
-                Destroy(used.gameObject);
+                if (used.kind == ItemKind.Tinder || used.kind == ItemKind.Stick)
+                    Destroy(used.gameObject);
             warmthRadius = 3.5f;
             _fireScale = 1f;
         }

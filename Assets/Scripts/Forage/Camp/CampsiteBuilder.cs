@@ -40,6 +40,7 @@ namespace Forage
             site.transform.position = new Vector3(-3.2f, forest.HeightAt(-3.2f, 2.8f), 2.8f);
             site.transform.rotation = Quaternion.Euler(0, 155f, 0);
             var shelter = site.AddComponent<Shelter>();
+            site.AddComponent<ShelterRest>();
             shelter.Build(forest.barkMat, forest.broadleafCards != null && forest.broadleafCards.Length > 0
                 ? forest.broadleafCards[0] : ForageAssets.Instance.tinderStraw);
         }
@@ -218,12 +219,42 @@ namespace Forage
             var pot = ItemFactory.Pot();
             pot.transform.position = pitPos + new Vector3(-0.9f, 0.25f, 0.3f);
 
+            BuildCookingGear(forest, pit, pitPos);
+
             // two flint stones: strike them together hard near the pit for sparks
             for (int i = 0; i < 2; i++)
             {
                 var flint = ItemFactory.FlintStone(forest.seed + 950 + i);
                 flint.transform.position = pitPos + new Vector3(0.55f + i * 0.18f, 0.2f, -0.5f);
             }
+        }
+
+        /// <summary>
+        /// Campfire cooking gear: the tripod (bucket hook) and spit built over the
+        /// pit, the bucket at a fixed spot beside the ring, two roasting skewers,
+        /// and the drink-button handler, which lives with the camp systems.
+        /// </summary>
+        void BuildCookingGear(ForestGenerator forest, GameObject pit, Vector3 pitPos)
+        {
+            var rigGo = new GameObject("CampfireRig");
+            rigGo.transform.SetParent(pit.transform, false);
+            rigGo.AddComponent<CampfireRig>().Build();
+
+            // the bucket always starts in the same place: on the ground just outside the ring
+            var bucket = ItemFactory.Bucket();
+            var bucketSpot = pitPos + new Vector3(-1.05f, 0f, -0.75f);
+            PlaceOnGround(bucket.transform, bucketSpot.x, bucketSpot.z, forest, 0.02f);
+
+            // two skewers laid on the ground on the far side of the ring
+            for (int i = 0; i < 2; i++)
+            {
+                var skewer = ItemFactory.Skewer(forest.seed + 970 + i);
+                var spot = pitPos + new Vector3(0.05f + i * 0.12f, 0f, 1.0f + i * 0.1f);
+                PlaceOnGround(skewer.transform, spot.x, spot.z, forest, 0.04f);
+                skewer.transform.rotation = Quaternion.Euler(0f, 8f - i * 14f, 0f);
+            }
+
+            if (GetComponent<HandDrinking>() == null) gameObject.AddComponent<HandDrinking>();
         }
 
         void ScatterGatherables(ForestGenerator forest)

@@ -116,31 +116,75 @@ namespace Forage
             }
         }
 
+        // Roof geometry (shelter-local): ribs stand on the ground at z = RibBaseZ and lean
+        // forward onto the ridge pole (height RidgeHeight, z = 0). Every rib and thatch
+        // panel is derived from this one slope so they always agree with each other.
+        const float RibBaseZ = -1.35f;
+        const float RidgeHeight = 1.45f;
+        static readonly Vector3 RoofDir = new Vector3(0f, RidgeHeight, -RibBaseZ);            // along the slope, up toward the ridge
+        static float RoofLength => RoofDir.magnitude;
+        static Vector3 RoofUp => RoofDir.normalized;
+        /// <summary>Roof surface normal: up and out toward the open front (-z).</summary>
+        static Vector3 RoofNormal => new Vector3(0f, RoofUp.z, -RoofUp.y);
+
         void AddBranchVisual(int index)
         {
             // angled rib leaning on the ridge
             var rib = new GameObject("Rib" + index);
             rib.transform.SetParent(transform, false);
             float x = Mathf.Lerp(-0.95f, 0.95f, index / (float)(branchesNeeded - 1));
-            rib.transform.localPosition = new Vector3(x, 0, -1.35f);
-            rib.transform.localRotation = Quaternion.Euler(-47f, 0, 0);
-            rib.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothTube(0.035f, 0.025f, 2.05f, 5, 2, 0.03f, 200 + index, 2f);
+            rib.transform.localPosition = new Vector3(x, 0, RibBaseZ);
+            rib.transform.localRotation = Quaternion.FromToRotation(Vector3.up, RoofUp);
+            rib.AddComponent<MeshFilter>().sharedMesh = NatureFactory.SmoothTube(0.035f, 0.025f, RoofLength + 0.07f, 5, 2, 0.03f, 200 + index, 2f);
             rib.AddComponent<MeshRenderer>().sharedMaterial = _bark;
+        }
+
+        const float PanelWidth = 2.2f;
+        Material[] _thatchMats;
+
+        /// <summary>
+        /// Thatch is solid green leaf colour, drawn on both sides so it also covers you from
+        /// underneath. (The alpha-cutout leaf card used before is a single leaf drawn in a
+        /// small part of the quad, so each panel came out as a thin vertical strip.)
+        /// </summary>
+        Material ThatchMaterial(int index)
+        {
+            if (_thatchMats == null) _thatchMats = new Material[leavesNeeded];
+            if (_thatchMats[index] == null)
+            {
+                var m = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "Thatch" + index };
+                float v = (index % 3) * 0.035f;
+                m.SetColor("_BaseColor", new Color(0.27f + v, 0.46f + v, 0.2f));
+                m.SetFloat("_Smoothness", 0.1f);
+                if (m.HasProperty("_Cull")) m.SetFloat("_Cull", 0f);   // double-sided
+                _thatchMats[index] = m;
+            }
+            return _thatchMats[index];
         }
 
         void AddLeafPanel(int index)
         {
-            // ProBuilder plane laid over the ribs as leaf thatch
-            var pb = ShapeGenerator.GeneratePlane(PivotLocation.Center, 2.2f, 0.75f, 2, 1, Axis.Up);
+            // ProBuilder plane laid over the ribs as leaf thatch: the panels tile
+            // side by side up the slope, each covering a third of it (slightly overlapping)
+            float step = RoofLength / leavesNeeded;
+            var pb = ShapeGenerator.GeneratePlane(PivotLocation.Center, 2.2f, step + 0.1f, 2, 1, Axis.Up);
             pb.gameObject.name = "Thatch" + index;
             pb.transform.SetParent(transform, false);
-            float t = (index + 0.5f) / leavesNeeded;
-            pb.transform.localPosition = new Vector3(0, Mathf.Lerp(0.35f, 1.25f, t), Mathf.Lerp(-1.05f, -0.35f, t));
-            pb.transform.localRotation = Quaternion.Euler(43f, 0, 0);
+            Vector3 centre = new Vector3(0f, 0f, RibBaseZ) + RoofUp * (step * (index + 0.5f)) + RoofNormal * 0.045f;
+            pb.transform.localPosition = centre;
+            pb.transform.localRotation = Quaternion.FromToRotation(Vector3.up, RoofNormal);
             var mr = pb.GetComponent<MeshRenderer>();
-            mr.sharedMaterial = _leafMat;
+            mr.sharedMaterial = ThatchMaterial(index);
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             pb.ToMesh();
             pb.Refresh();
+
+            // ProBuilder's width/length argument order is easy to get backwards (the panels
+            // used to come out 0.75 wide and 2.2 long), so size the panel from its real
+            // mesh bounds: 2.2 m across the roof, one third of the slope along it.
+            var size = pb.GetComponent<MeshFilter>().sharedMesh.bounds.size;
+            if (size.x > 0.001f && size.z > 0.001f)
+                pb.transform.localScale = new Vector3(PanelWidth / size.x, 1f, (step + 0.1f) / size.z);
         }
 
         void LateUpdate()
@@ -149,7 +193,8 @@ namespace Forage
             if (!IsComplete) return;
             var gm = GameManager.Instance;
             if (gm == null || gm.vitals == null) return;
-            if (Vector3.Distance(gm.PlayerPosition, transform.position + new Vector3(0, 0.8f, -0.8f)) < 2.2f)
+            // the rest spot is in the shelter's own space (it is built turned 155°), not a fixed world offset
+            if (Vector3.Distance(gm.PlayerPosition, transform.TransformPoint(new Vector3(0f, 0.8f, -0.5f))) < 2.2f)
                 gm.vitals.nearFire = true;
         }
     }

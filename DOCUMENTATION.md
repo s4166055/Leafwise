@@ -121,7 +121,7 @@ Species are placed by searching only the zones that suit them; waterside species
 ### 5.1 Player vitals (`PlayerVitals`) — the health-bar rules
 | Stat | Decreases | Increases |
 |---|---|---|
-| **Hydration** | 4.5/min passively; ×2.5 while sick | Drinking from the pot: +45 |
+| **Hydration** | 4.5/min passively; ×2.5 while sick; **×3 while untreated water is in your gut** | Pot: +45 · bucket serving (¼ bucket): +30 · cupped-hand pond sip: +9 (untreated) |
 | **Food (energy)** | 3/min passively | Safe mushroom: +30 |
 | **Warmth** | 5/min at night away from fire | +25/min near a lit fire (radius 3.5→5.5 m with fire size) |
 | **Health** | Drains while any stat is 0 or while sick; instant hits: poison −15, Eastern Brown bite −16, Python bite −6 | Recovers ~2.5/min when everything is fine. **Floor = 5: weakness, never death** (education-first) |
@@ -129,7 +129,7 @@ Species are placed by searching only the zones that suit them; waterside species
 
 ### 5.2 HOW TO START A FIRE — step by step
 
-**1 · Gather tinder.** Straw-coloured **tinder bundles** lie around the camp clearing (4 of them). Pinch it with your fingers (or squeeze **grip** on a controller) to pick it up, hold it over the stone ring and let go. You can lower it right into the ring before releasing: anything let go inside the ring is taken as fuel and settles into the pile. *Without tinder nothing will ever catch — Scout will tell you so.*
+**1 · Gather tinder.** Bright golden-straw **tinder bundles**: one always sits right beside the fire ring, and 4 more lie around the camp clearing. Pinch it with your fingers (or squeeze **grip** on a controller) to pick it up, hold it over the stone ring and let go. You can lower it right into the ring before releasing: anything let go inside the ring is taken as fuel and settles into the pile. *Without tinder nothing will ever catch — Scout will tell you so.*
 
 **2 · Gather dry wood.** Pick up **1–2 sticks** (20 lie around the clearing) and drop them in the ring too. ⚠️ **Sticks lying near the pond are damp** — they only deliver a quarter of the heat. Damp fuel no longer ruins the fire permanently: the penalty scales with the wet-to-dry ratio, so piling on dry wood rescues it.
 
@@ -154,7 +154,7 @@ Species are placed by searching only the zones that suit them; waterside species
 - **Fuel scaling** (user request): each stick adds 150 s of burn; feeding a burning fire enlarges it — flame emission 35→110, size and speed up, light range and warmth radius grow (1→2.1× at 7+ sticks).
 
 ### 5.3 Water
-Pot (grabbable, by the fire pit): dip **below the pond surface** to scoop murky water → hold within 1.3 m of the lit fire for **18 s** to boil (steam VFX, water disc turns clear) → raise to your mouth (< 0.3 m, hold 0.9 s) to drink. Boiled = +45 hydration, gulp sound, blue vignette flash. **Unboiled = sickness**, with a one-time Scout warning before you commit. Removing the pot mid-boil resets it to dirty.
+Pot (grabbable, by the fire pit): dip it **within about 30 cm of the pond surface** to scoop murky water (it used to need a full crouch to within 5 cm of a surface level with the bank, so headset testers could not fill it) → hold within 1.3 m of the lit fire for **18 s** to boil (steam VFX, water disc turns clear) → raise to your mouth (< 0.3 m, hold 0.9 s) to drink. Boiled = +45 hydration, gulp sound, blue vignette flash. **Unboiled = sickness**, with a one-time Scout warning before you commit. Removing the pot mid-boil resets it to dirty.
 
 ### 5.4 Foraging — 26 mushrooms, 4 species
 | Species | Count | Safe? | Teaching point |
@@ -225,7 +225,7 @@ All animals derive from `Animal`: NavMeshAgent movement over a **runtime-baked N
 Wanders between trees (2.2 m/s); every 15–35 s picks a registered tree within 14 m → runs to it → **climbs 2–3 m up the trunk** (nose-up against bark) → idles 4–8 s → climbs down → wanders on. Drives the asset’s own animator via its float speed parameter. ~350 trees are registered as climbable at startup.
 
 ### 6.4 Pond life
-Fish (7) and crabs (3) as described in §4.3 — ambient, and groundwork for the fishing mechanic (C7).
+Fish (7, `FishAI`, §15.4) and crabs (3, `CrabAI`, §16.4) — both simulate themselves; `PondLife` only spawns them.
 
 ---
 
@@ -239,6 +239,7 @@ Fish (7) and crabs (3) as described in §4.3 — ambient, and groundwork for the
   2. **Head-ground clamp**: head tracking has no collision, so if the camera would sink into a hillside (simulator translate *or* physically walking into a slope on Quest) the whole rig rides up smoothly.
   3. Fall catch: > 6 m below terrain, or stuck submerged > 2 s → reset to the last safe standing spot.
 - Teleport across the entire terrain; XR Interaction Simulator auto-enabled in the editor for headset-free play.
+- **Fire burns:** with the fire lit, stepping onto the stone ring earns a Scout warning; standing in the flames, or holding a hand or controller in them, takes health every half second (red flash, rumble, Scout tells you to get out). Health keeps its floor, so it teaches without killing. `FirePit.CheckBurns`, hand positions from `PlayerHands.Get`.
 - **Desk testing without a headset:** turn **Error Pause** off in the Console toolbar. With no headset, Meta's OpenXR feature logs `ErrorFormFactorUnavailable` on the first frame; with Error Pause on, Play mode freezes on frame 1 before the simulator can spawn, and looks unplayable.
 
 ---
@@ -264,9 +265,11 @@ Fish (7) and crabs (3) as described in §4.3 — ambient, and groundwork for the
 2. Start a campfire (drill or flint)
 3. Boil pond water and drink it safely
 4. Eat a safe mushroom
-5. Build the shelter *(C7)*
-6. Observe wildlife without scaring it (rabbit gift **or** snake calm-freeze)
-7. Survive until nightfall *(C6 day-night)*
+5. Catch a fish and roast it on a skewer *(section 17)*
+6. Build the shelter *(C7)*
+7. Observe wildlife without scaring it (rabbit gift **or** snake calm-freeze)
+8. Survive until nightfall *(C6 day-night)*
+9. Make it through the night to sunrise *(section 17)*
 
 Completion → chime + haptic + toast card; the wrist watch always shows the current objective. `ForageEvents` is the decoupled hint/signal bus that the Scout companion (C7) will voice — hints already fire everywhere (`fire-no-tinder`, `wood-damp`, `strike-harder`, `about-to-drink-dirty`, `snake-freeze`, `rabbit-scared`, …).
 
@@ -559,6 +562,151 @@ The 64 world invariants live once, in `Forage.Testing.WorldInvariants`, shared b
 ```
 
 Exit code 0 = all passed. Prefer batch mode on this machine: during an in-editor PlayMode run the security product locked `OpenXRPackageSettings.asset` mid-reserialisation, Unity raised a modal *"Moving file failed"*, and the run stalled until dismissed. Batch mode cannot show dialogs.
+
+---
+
+## 15. Water update — bucket, physical pond, drink button, living fish
+
+### 15.1 Bucket (`Water/Bucket.cs`, built by `ItemFactory.Bucket`)
+Low-poly wooden pail (12 staves, two metal hoops, wire handle) beside the fire pit. It is **held by the handle**, so it hangs from the hand and tilts with the wrist.
+
+| Action | How it works |
+|---|---|
+| **Fill** | Dip the rim under the pond surface → fills at 65 %/s. Pond water is always *untreated* (brown tint + floating dirt specks). |
+| **Spill (percentage)** | The water surface stays level with gravity. It crests the rim when `fill·H + r·tan(tilt) > H`, so a brim-full bucket spills at any tilt, a half-full one at ~45°. Flow above the rim is a weir law (∝ excess^1.5); upturned it empties in about a second. **Jerky movement sloshes too**: horizontal acceleration tilts the effective gravity (capped at 35°), so sudden starts and stops on the walk back cost water. A spill stream, trickle sound and Scout hint follow. |
+| **Boil** | Hang it by its handle on the **hook of the campfire tripod** (`Camp/CampfireRig.cs`; replaces the earlier hearth-stone bucket stand, see §16). While the fire is *Burning* it boils in 8–26 s depending on fill (steam + bubbling). Taking it off part-way cools it and Scout warns. Boiled = clear water, dirt settles. |
+| **Drink** | Raise the rim to your mouth (0.9 s) or hold it near your face and press **B/Y**. One serving = ¼ bucket = +30 H2O. Boiled completes the *water* objective; untreated = sickness + fast drain. |
+| **Pour** | Tip it over the camp pot: ~⅛ bucket fills the pot (clean only if the bucket was boiled). |
+| **Label** | World-space readout while held/near: `Water 72% · murky — boil before drinking` / `boiling 40%` / `boiled — safe to drink` / `spilling!`. |
+
+### 15.2 Physical pond (`Water/WaterBody.cs`)
+
+Ripples worth seeing (a hand, a splash, a fish rising, amplitude ≥ 0.008) also draw flat white rings that grow and fade on the surface (`Environment/RippleRingFx.cs`): the mesh alone shows only the swell, which reads as a still pond from standing height.
+The batched PondWater mesh can't be deformed, so its renderer is hidden and a 1,921-vertex animated surface replaces it (same material, same `Water` tag and trigger). Swell plus up to 12 expanding ripple rings from splashes, hands and fish. Every Rigidbody inside gets **buoyancy** from its submerged share against the local wave height (wood floats, flint and the metal pot sink, the bucket floats less the fuller it is), water drag, and a slow **circulating current**, so floating sticks drift. Splash droplets and a synthesized splash sound play on entry.
+
+### 15.3 Drink button and thirst (`Water/HandDrinking.cs`, `Core/PlayerHands.cs`)
+**B / Y** (secondary face button; simulator's secondary button; **J** at a desk): a container held near the face is drunk first. Otherwise, with that hand in the pond, it takes a **cupped-hand sip**: +9 H2O now, but untreated water adds 40 s of **×3 hydration drain** (stacking to 240 s). Past 150 s stacked you also get sick. A brown vignette shows while it lasts.
+
+### 15.4 Living fish (`Animals/FishAI.cs`)
+Root cause of the old bug: fish were *kinematic* while swimming, and `XRGrabInteractable` restores the pre-grab kinematic/gravity flags on release, so a dropped fish froze in mid-air. Fish are now always dynamic bodies, and the AI re-asserts physics flags every step.
+
+| State | Behaviour |
+|---|---|
+| Swimming | Wanders below the surface, tail beat scales with speed, darts away from hands in the water, carried by the current |
+| Held | Thrashes in bursts (tail + body), buzzes the holding controller, after a 1.5 s grace can slip free when held low over the water |
+| Flopping | Out of water: hop-and-twist flops, mostly vertical, biased back toward the pond when close; tires over ~75 s and dies |
+| Back in water | Dropped, thrown or flopped in → swims off (Scout: "it got away!") |
+| Dead / cooked | Normal food item (FishItem / Cookable); cooking a live fish kills it |
+
+### 15.5 Items no longer roll away (first version; merged with the class fix in §16.5)
+Thirty seconds into a session, 35 of 76 loose items were still moving: all four tinder bundles had rolled 40–60 m out of camp, the flints ~24 m, the pot ~42 m. Two causes. (1) Round colliders: tinder, leaf bundles, flint and berries were spheres; the pot's capsule was shorter than it was wide (so, a sphere); sticks were capsules lying on their side. (2) PhysX has friction but **no rolling resistance**, and the camp clearing only flattens fully at its centre.
+
+Fixes: flat **box colliders** for sticks, branches, tinder, leaves, flint, berries, pot and drill; a grippy physics material; and `GroundSettle` on every grabbable. While an item touches static ground and isn't held, it damps spin and travel, and puts the item to sleep once it's nearly still. Throws and floating are untouched. It also caps overlap correction (`maxDepenetrationVelocity` 2 m/s), because the player's body landing on a stick used to fling it 40 m up. Separately, berry clusters skipped for being too close to the pond were left at the world origin, underground; placement is now decided before creating them. Result: 0 of 43 loose items moving after 37 s, and tinder, flint and pot stay where they spawn.
+
+### 15.6 Tests
+`Assets/Tests/PlayMode/WaterAndFishPlayModeTests.cs` covers 10 behaviours: items coming to rest, bucket spawn/stand placement, scooping, spill-to-rim against the analytic angle, pouring into the pot, boiling only while the fire burns, boiled vs raw drinking with the measured ×3 drain rate, the drink button with a hand at the waterline, buoyancy and drift, and the full fish cycle (held → released → falls and flops → back in water swims). WorldInvariants gained 8 checks for the same systems.
+
+Two bugs were caught by these tests before they shipped. (1) A freshly spawned interpolated Rigidbody ignores a transform move made in its creation frame, so the bucket spawned at the world origin, underground, and fell forever. Interpolation is now enabled in `Start`. (2) A near-empty clamp zeroed the first frames of scooping at headset frame rates (<2 %/frame), so the bucket could never fill on a Quest.
+
+**Unrelated fix needed to compile:** `Editor/Forage/SkillExporter.cs` is now wrapped in `#if UNITY_MCP_READY`. The pulled manifest bump of the IvanMurzak Unity-MCP package (0.88 → 0.93.2) left that define unset, which disables the package's assemblies and broke the whole `Forage.Editor` assembly.
+
+
+## 16. Campfire cooking rig, skewers and crabs (merge with the class update)
+
+The class update (fire needs tinder, pot fills with water, fish can be eaten and must be cooked, items stop rolling) was merged with the water update. Where both touched the same thing, the class version was kept and the water features re-applied on top.
+
+### 16.1 Campfire rig (`Camp/CampfireRig.cs`, built by `CampsiteBuilder.BuildCookingGear`)
+Built over the fire pit in pit-local space:
+
+| Part | What it is | How you use it |
+|---|---|---|
+| **Tripod + hook** | Three poles lashed at 1.25 m, a chain, and a hook 0.88 m above the flames (`BucketSocket`) | Bring the bucket near the hook and let go: it hangs **by its handle**, upright, over the fire. While the fire burns the water boils (§15.1). Grab it to take it off. |
+| **Spit** | Two forked uprights either side of the ring; the rest point is 0.5 m above the flames (`SkewerSocket`) | Bring a loaded skewer near the forks and let go: it rests across the fire and roasts. |
+| **Sign** | Billboarded text: "Hook: hang the bucket… / Forks: rest a skewer…" | Shown within 4 m; hides once both are in use. |
+
+The bucket stand was removed; `Water/BucketStand.cs` now only holds the two socket filters. While hanging, the bucket ignores its own slosh tracking (the snap onto the hook is not a jerk).
+
+### 16.2 Skewers (`Items/Skewer.cs`, `ItemFactory.Skewer`)
+Two 1.25 m sharpened sticks lie by the pit. Hold one and push the point into a fish (on the ground, in your other hand, still flopping) and it slides onto the stick (2 fish max), with a crunch and a buzz. Speared fish die, turn kinematic and become part of the skewer. They roast while the skewer rests on the spit or is held over the burning fire, and you can eat straight off the skewer by bringing the fish to your mouth.
+
+### 16.3 Realistic cooking rule (`Items/Cookable.cs`)
+Fish now have `requiresSkewer`: they only cook when skewered, over a *lit* fire, within 0.55 m horizontally and 0.1–1.1 m above it. A loose fish dropped in or beside the fire does **not** cook, and Scout explains why ("Spear the fish on a SKEWER…"). Other cookables (mushrooms) keep the old rule.
+
+### 16.4 Crabs (`Animals/CrabAI.cs`)
+The old crabs were a blob with six spikes that glided over the pond bed with no moving legs. They had no collider, and they sat partly inside the terrain because they followed the analytic height field, not the real mesh. Now:
+
+| State | Behaviour |
+|---|---|
+| Walking / Idle | Walks **sideways** on the real pond floor (raycast to the terrain collider), tilting with the slope; legs step in alternating pairs; pauses and waves its claws |
+| Fleeing | A hand within 0.6 m makes it scuttle away fast |
+| Buried | Startled three times in the pond, it buries itself in the silt for 6–10 s (only the eyes show) |
+| Held | Can be picked up (collider + grab). It struggles and about every 2–3 s may **pinch**: strong buzz, a sting to health (−1) and a Scout hint |
+| Falling | Dropped, it falls as a real body (sinks in the pond: buoyancy 0.5), lands, recovers and, if it is on land, walks back to the water |
+
+Each crab has a shell, 8 jointed legs, 2 claws with pincers and eye stalks.
+
+### 16.5 Items rolling away and falling out of the world
+The class fix (higher damping, a low sleep threshold and a grippy material on every item) was kept, but on its own it was not enough. 15 s after spawning, **28** sticks, branches, tinder and leaf bundles were still creeping 1–4 m downhill. In the editor log, both skewers, the bucket, a branch and a fish had "fallen out of the world" and were being recovered **in a loop, forever**. Three causes and fixes:
+
+| Problem | Fix |
+|---|---|
+| PhysX has no rolling resistance; the sticks' and branches' capsule colliders roll like logs | `GroundSettle` is back on every grabbable (`MakeGrabbable`, bucket, skewer), alongside the class damping. Sticks and branches use flat-bottomed **box colliders**. The skewer's collider is a little thicker (4 cm). Result: 0 items moving. |
+| A velocity-tracked item whose hand target jumps (far grab, teleport, sprinting at 16 m/s) gets distance/frame velocity, hundreds of m/s. It, or whatever it hits, leaves the 144 m map. | Speed cap `GroundSettle.MaxSpeed` = 20 m/s on items, fish and crabs (a hard throw is ~15 m/s). Overlap push-out is capped at 2 m/s. |
+| The rescue net (`SurvivalItem`) recorded "last good position" anywhere above the ground, **including mid-air over the void past the map edge**, so a flung item was put back in the air, fell, and was recovered again forever. It also waited until 10 m below ground. | "Last good" is now recorded only inside the map, near the ground, nearly still and not in a hand. Off the map, an item is recovered as soon as it drops below ground; inside the map, at 2 m below. It is checked 4×/s. |
+
+The fish and crab tests also selected a creature from the pond 30 m away. Velocity tracking fired it through camp and bowled the skewers and bucket off the map, which is what showed up while the tests ran. The tests now bring the creature to the hand first, as a real grab does.
+
+### 16.6 Tests
+- **PlayMode:** `Bucket_HangsOnTheHookAndBoilsOnlyWhileTheFireBurns`, `Skewer_SpearsFish_RoastsOnTheSpit_ButNotInTheAshes`, `Crabs_WalkOnThePondFloor_Flee_CanBePickedUp_AndReturnToWater` and `Items_CannotBeFlungOffTheMap_AndAreRecoveredIfLost` (speed is capped; an item lost off the edge comes back once, to where it last rested). Full suite: 19/19.
+- **EditMode:** 8/9. `QuestBuild_PreflightValidationPasses` fails on two OpenXR settings (controller profile, hand-tracking features) in `OpenXRPackageSettings.asset`, which Unity rewrote when the project opened. It is not a code issue: run **Forage ▸ Quest ▸ 1 - Configure XR and Player Settings**.
+- **WorldInvariants:** new checks that the rig exists, the hook and spit are over the flames, skewers exist, crabs have colliders and 8 legs, and every crab stands on the real pond floor.
+
+## 17. Day/night loop, sleeping, raw-fish illness and the fishing objective
+
+### 17.1 Why the old night felt wrong
+`DayNightCycle` was a single 10-minute arc: the sun fell from 38° to −14° and then **stayed below the horizon for good**. The light was already fading from about minute 5, full night began around minute 6.5, and from then on the main light was off (intensity 0), so it was pitch dark with no morning, no moon and no way back. The morning/afternoon ended up much shorter than "night", which never ended.
+
+### 17.2 The looping cycle (`Environment/DayNightCycle.cs`)
+- One loop = `cycleSeconds` = **1200 s (20 minutes)**. The session starts in mid-morning (phase 0.07, sun about 30° up, clock about 08:15).
+- The sun elevation comes from a smooth periodic curve (`SunElevation(phase)`, an `AnimationCurve` over key points, wrapped three times so it is seamless): sunrise at phase 0.935, noon (58°) at 0.25, sunset at 0.66. About **72% of the loop is daylight and 27% is night**, so a night lasts **about 5.5 minutes**, and dusk (15° to the horizon) takes about 2.4 minutes instead of a few seconds.
+- `ClockHours(phase)` maps this to a clock: sunrise 06:00, sunset 18:00. The wrist watch shows it (HH:MM, blue at night).
+- `isNight` is true while the sun is below the horizon. It drives `PlayerVitals.isNight` (warmth drain), crickets (fade in and out) and owls.
+- **Moonlight.** The URP asset disables additional lights, so there is only ONE realtime light. Below −3° sun elevation the same directional light becomes the moon: cool blue (0.55, 0.66, 0.95), intensity up to 0.3, high in the sky and moving across the night. Ambient and fog get a brighter blue night palette so the world is dim but readable. The procedural skybox is drawn from the light's direction, so its exposure and sun disc are faded out before the swap, using a runtime copy of the skybox material.
+- Events: `nightfall` completes "survive" and shows a "Night falls" card the first time; `dawn` completes the new **"Make it through the night to sunrise"** objective and shows the objectives summary (this card used to appear at nightfall).
+
+### 17.3 Getting back to morning
+`DayNightCycle.SkipToMorning(bool sleeping)` (only at night): fades the view to black (`ScreenFeedback.FadeTo`), runs the clock forward to early morning (phase 0.03 of the next day) over 3.5 s, applies `PlayerVitals.PassTheNight(sleeping)`, then fades back in. A night costs 12 water and 12 food. Sleeping also gives +45 warmth and +25 health.
+
+Two ways to trigger it:
+1. **Sleep in the finished shelter** (`Camp/ShelterRest.cs`). At night, **crouch inside the completed shelter** for about 3.5 s: in the headset, physically crouch (head below 1.15 m above the ground, within 1.3 m of the rest spot; kneeling or sitting on the floor also works); at a desk or in the XR simulator, hold **C** or **Left Ctrl** while standing inside the shelter. Seated headset play may already be below the threshold, so use the watch skip if it triggers by accident or never triggers. The decision is a pure function, `ShelterRest.Evaluate(...)`: Ok / NotNight / ShelterIncomplete / TooFar / StandingUp / Busy.
+2. **The wrist watch** (`UI/WristHud.cs`). At night, hold your free (right) hand within 15 cm of the watch for 1.5 s (controller or tracked palm). A thin bar fills while you hold, and the objective text tells you to keep your hand there. **N** does the same at a desk. It only passes the time: no warmth or health bonus. There is no clickable button because the scene has no UI event system, so a hold gesture is used instead.
+
+Skipping advances the sun, not `Time.time`, so fire timers do not change (the fire keeps burning for the real elapsed seconds).
+
+Also fixed: the shelter's warmth spot used an unrotated world offset although the shelter is built turned 155°; it now uses `transform.TransformPoint`.
+
+### 17.4 Raw fish makes you ill (`Items/FishItem.cs`, `Core/PlayerVitals.cs`)
+Eating a fish that is not cooked: +12 food, an immediate −8 health, and `PlayerVitals.ApplyFoodPoisoning(75 s, 8, "ate-raw-fish")`. While it lasts: sickness (hydration drains ×2.5, health drains about 30/min), and **energy (food) drains ×3**, so you get thirstier and hungrier and lose health. A new card ("Raw fish — you feel sick!") and a Scout hint explain it. The numbers are constants on `FishItem` (`RawFoodValue`, `PoisoningSeconds`, `PoisoningHealthHit`) and `PlayerVitals.poisonEnergyDrainMultiplier`. Cooked fish is unchanged (+50 food, no penalty).
+
+### 17.5 Fishing objective
+New objective **"Catch a fish and roast it on a skewer"** (after "Eat a safe mushroom"). It completes when a *cooked* fish is eaten (raw does not count). Scout has a tip for it and for "dawn".
+
+### 17.6 Tests
+- **EditMode** (`DayNightEditModeTests`, 11): start in morning, periodic, night is 15–35% of the loop, slow dusk, smooth sun (no jumps), sunrise/sunset on the horizon, skip lands in early morning, clock runs forward and hits 06:00/18:00, `FormatClock`, the sleeping rule, the watch reach.
+- **PlayMode** (`DayNightPlayModeTests`, 11, plus `ShelterPlayModeTests`, see 17.7): bright start, moonlit night (intensity 0.15–0.4, bluish, ambient not black, sky dimmed, "survive"), loops to day two with "dawn", light changes without jumps over a whole loop, watch skip (fades, wakes in the morning, costs water and food, no healing), sleep (warms and heals), shelter sleep rules, raw fish effects (health, hungrier, thirstier, hint, not the objective), poisoning passes, cooked fish completes "fish", objective order, wrist clock, and a render of the camp at 8 times of day (`Temp/claude-shots/daynight-*.png`) that checks noon > dusk > night and that the night is not black.
+- **WorldInvariants:** the cycle drives the sun, loop length is 10–60 min, the session starts in bright morning, `ShelterRest` exists, the new objectives exist.
+- Not testable without a headset: the real wrist-hold gesture and real crouching; the logic behind both is unit tested.
+
+### 17.7 Shelter geometry fix (`Camp/Shelter.cs`)
+Building the shelter was reported as "nothing happens" and "the leaves stack instead of lying side by side". The drop logic was fine (a new test drops 4 branches and 3 bundles and they are all accepted), but the visuals were wrong:
+
+| Problem | Fix |
+|---|---|
+| The ribs leaned the wrong way: tilted −47°, so each rib's top ended about 2.85 m **behind** the ridge pole, in mid-air. | Ribs and thatch are now derived from one roof slope (ground at local z = −1.35, ridge at height 1.45, z = 0), so each rib leans onto the ridge. |
+| The thatch panels were tilted the opposite way to the roof and drawn with an alpha-cutout leaf card that only fills a small part of its quad, so they looked like thin strips piled up. | Three panels now tile up the slope, each covering a third of it, with a solid green material that is drawn on both sides (so it also roofs you from underneath). |
+| ProBuilder's plane width/length turned out swapped (panels were about 0.8 m wide and 2.2 m long). | Each panel is sized from its real mesh bounds: 2.2 m across the roof, one third of the slope along it. |
+
+New PlayMode test `ShelterPlayModeTests.Shelter_BuildsFromDroppedBranchesAndLeaves`: a leaf bundle before any branch is refused; 4 branches then 3 bundles are accepted; the objective completes; ribs lean onto the ridge; panels lie on the roof slope, tile with 0.5–0.85 m spacing and have the right size. It also renders the shelter to `Temp/claude-shots/shelter-*.png`.
 
 ---
 

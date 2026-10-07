@@ -174,6 +174,11 @@ namespace Forage.EditorTools
         /// Contains(), and "MetaQuestTouchPlusControllerProfile" is a substring
         /// of "DetachedMetaQuestTouchPlusControllerProfile" - so asking for the
         /// Touch Plus profile silently switched on the detached one beside it.
+        ///
+        /// Each feature is its own sub-asset, so it must be marked dirty itself.
+        /// Dirtying only the parent OpenXRSettings let the editor build with the
+        /// features on while SaveAssets never wrote them to disk, so a teammate
+        /// who pulled the repo got every interaction profile and hand feature off.
         /// </summary>
         static void ApplyFeatures(OpenXRSettings settings)
         {
@@ -184,7 +189,7 @@ namespace Forage.EditorTools
 
                 if (System.Array.IndexOf(WantedFeatures, name) >= 0)
                 {
-                    if (!f.enabled) { f.enabled = true; Debug.Log("[Forage]   enabled  " + name); }
+                    if (!f.enabled) { f.enabled = true; EditorUtility.SetDirty(f); Debug.Log("[Forage]   enabled  " + name); }
                 }
                 else
                 {
@@ -192,6 +197,7 @@ namespace Forage.EditorTools
                     if (unwanted.Name != null && f.enabled)
                     {
                         f.enabled = false;
+                        EditorUtility.SetDirty(f);
                         Debug.Log($"[Forage]   DISABLED {name} - {unwanted.Reason}");
                     }
                 }

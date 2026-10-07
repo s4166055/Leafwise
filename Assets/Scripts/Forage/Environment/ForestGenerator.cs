@@ -184,17 +184,22 @@ namespace Forage
 
         void BuildPondWater()
         {
-            // animated surface: waves, ripples where hands and the pot touch, fish rising
-            var go = new GameObject("PondWater");
-            go.transform.SetParent(_propsRoot, false);
-            go.transform.localPosition = new Vector3(pondCenter.x, WaterLevel, pondCenter.y);
-            go.AddComponent<MeshRenderer>().sharedMaterial = waterMat;
-            go.AddComponent<PondWater>().Init(pondRadius * 0.92f);
+            var mesh = LowPolyFactory.Cone(pondRadius * 0.92f, 0.02f, 24);
+            var go = LowPolyFactory.AddMeshChild(_propsRoot.gameObject, mesh, waterMat,
+                new Vector3(pondCenter.x, WaterLevel, pondCenter.y));
+            go.name = "PondWater";
             var col = go.AddComponent<SphereCollider>();
             col.isTrigger = true;
             col.radius = pondRadius * 0.9f;
             col.center = Vector3.up * 0.3f;
             go.tag = "Water";
+
+            // physical water: animated waves + ripples, buoyancy, drag, current, splashes
+            var body = go.AddComponent<WaterBody>();
+            body.center = pondCenter;
+            body.radius = pondRadius * 0.92f;
+            body.surfaceY = WaterLevel;
+            body.waterMat = waterMat;
 
             // life under the surface, visible through the transparent water
             var life = new GameObject("PondLife").AddComponent<PondLife>();

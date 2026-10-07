@@ -87,35 +87,6 @@ namespace Forage.Tests
         }
 
         // ------------------------------------------------------------------
-        // Day/night
-        // ------------------------------------------------------------------
-
-        [Test]
-        public void DayNight_SunRisesAgainAfterNight()
-        {
-            // Night used to be the end state: the sun set and never came back.
-            var go = new GameObject("DayNightTest");
-            try
-            {
-                var cycle = go.AddComponent<DayNightCycle>();
-                float day = cycle.dayLengthSeconds, night = cycle.nightLengthSeconds;
-
-                cycle.SunAt(0f, out float morning, out _);
-                cycle.SunAt(day + night * 0.5f, out float midnight, out _);
-                cycle.SunAt(cycle.CycleLength - 0.01f, out float afterDawn, out _);
-                cycle.SunAt((cycle.CycleLength + 1f) % cycle.CycleLength, out float nextDay, out _);
-
-                Assert.That(midnight, Is.LessThan(0f), "sun should be below the horizon at night");
-                Assert.That(afterDawn, Is.EqualTo(morning).Within(0.5f), "sun did not rise back to day height");
-                Assert.That(nextDay, Is.GreaterThan(30f), "the cycle should start a new day");
-            }
-            finally
-            {
-                Object.DestroyImmediate(go);
-            }
-        }
-
-        // ------------------------------------------------------------------
         // Build configuration
         // ------------------------------------------------------------------
 

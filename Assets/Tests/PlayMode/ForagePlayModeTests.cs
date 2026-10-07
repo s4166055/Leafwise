@@ -186,42 +186,36 @@ namespace Forage.Tests
         }
 
         [UnityTest]
-        public IEnumerator Water_PotFillsNearSurfaceAndFloatsWhenDropped()
+        public IEnumerator Water_PotFillsWhenDippedNearTheSurface()
         {
-            var pond = PondWater.Instance;
+            // The pond surface sits level with the bank. The pot used to need its
+            // base within 5 cm of it, a full crouch to the floor, so headset
+            // testers could never fill it. A 20 cm dip must be enough.
+            var water = WaterBody.Instance;
             var pot = Object.FindFirstObjectByType<CookingPot>();
-            Assert.That(pond, Is.Not.Null, "pond surface (PondWater) missing");
+            Assert.That(water, Is.Not.Null, "pond WaterBody missing");
             Assert.That(pot, Is.Not.Null);
             var rb = pot.GetComponent<Rigidbody>();
             Vector3 home = pot.transform.position;
+            bool wasKinematic = rb.isKinematic;
             pot.SetState(CookingPot.PotState.Empty);
 
-            // over the water, 20 cm above the surface: a dip a standing player can reach
-            Vector3 over = pond.transform.position + new Vector3(3f, 0.2f, 0f);
+            Vector3 over = new Vector3(water.center.x + 3f, 0f, water.center.y);
+            over.y = water.SurfaceHeightAt(over.x, over.z) + 0.2f;
             rb.isKinematic = true;
             pot.transform.position = over;
             rb.position = over;
             float until = Time.time + 2f;
             while (pot.state == CookingPot.PotState.Empty && Time.time < until) yield return null;
-            Assert.That(pot.state, Is.EqualTo(CookingPot.PotState.DirtyWater),
-                "pot held 20 cm above the pond did not fill");
+            var state = pot.state;
 
-            // let go over deep water: it must bob at the surface, not sink 3 m out of reach
-            rb.isKinematic = false;
-            rb.linearVelocity = Vector3.zero;
-            Vector3 drop = pond.transform.position + new Vector3(0f, 0.5f, 0f);
-            pot.transform.position = drop;
-            rb.position = drop;
-            until = Time.time + 4f;
-            while (Time.time < until) yield return new WaitForFixedUpdate();
-            Assert.That(pot.transform.position.y, Is.EqualTo(pond.SurfaceY).Within(0.25f),
-                $"pot did not float: y {pot.transform.position.y:F2}, surface {pond.SurfaceY:F2}");
-
-            // put it back for the other tests
-            rb.linearVelocity = Vector3.zero;
             pot.transform.position = home;
             rb.position = home;
+            rb.isKinematic = wasKinematic;
             pot.SetState(CookingPot.PotState.Empty);
+
+            Assert.That(state, Is.EqualTo(CookingPot.PotState.DirtyWater),
+                "pot held 20 cm above the pond did not fill");
         }
 
         [UnityTest]

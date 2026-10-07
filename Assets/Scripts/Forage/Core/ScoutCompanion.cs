@@ -44,6 +44,18 @@ namespace Forage
             { "rabbit-scared", new[]{ "Too fast — you startled it.", "Move SLOWLY near animals. Walk calmly and the rabbit may come to you." } },
             { "deer-spooked", new[]{ "There it goes…", "Deer spook at speed and close approach. Watch from 5+ meters, moving gently." } },
             { "bear-dont-run", new[]{ "B-bear! Don't run. DON'T run.", "Face it, look BIG, and back away SLOWLY. Running triggers a chase you cannot win." } },
+            { "water-scooped", new[]{ "Murky stuff… I wouldn't sip that yet.", "Pond water carries germs. BOIL it by the fire before you drink it." } },
+            { "bucket-filled", new[]{ "Got water! Looks a bit murky though.", "Carry it back LEVEL, hang it on the HOOK over the fire and let it BOIL before drinking." } },
+            { "bucket-spilling", new[]{ "Careful — it's sloshing out!", "Keep the bucket UPRIGHT and move smoothly. A brim-full bucket spills at the slightest tilt." } },
+            { "bucket-needs-fire", new[]{ "The bucket's hung… but it's stone cold.", "The water only boils while the campfire is BURNING underneath. Light the fire first." } },
+            { "fish-needs-skewer", new[]{ "Fish in the ashes? It'll just burn outside and stay raw inside.", "Spear the fish on a SKEWER, then rest it across the forks over the fire to roast it." } },
+            { "fish-skewered", new[]{ "On the stick it goes!", "Now rest the skewer across the FORKS over the burning fire, or hold it over the flames." } },
+            { "drank-raw-water", new[]{ "That tasted… earthy.", "Raw pond water makes you lose fluid FASTER afterwards. Boil a bucketful instead." } },
+            { "crab-pinch", new[]{ "Ouch! It pinched you.", "Pick crabs up from behind, away from the claws — or better, leave them be." } },
+            { "fish-escaped", new[]{ "Splash — it got away!", "Fish are slippery. Grip it and carry it AWAY from the water before you let go." } },
+            { "ate-raw-fish", new[]{ "Ugh… that doesn't sit right.", "Raw fish carries parasites. You'll lose health and get thirsty and hungry fast — rest, drink boiled water, and roast fish on a skewer next time." } },
+            { "night-falls", new[]{ "The light's going…", "Night is cold. Stay by the fire, or crouch in the finished shelter (hold C at a desk) to sleep until morning." } },
+            { "sleep-ready", new[]{ "Cosy in here.", "Stay crouched in the shelter (keep holding C at a desk) and you'll sleep until morning — it warms you and restores health." } },
             { "shelter-branches-first", new[]{ "Leaves need something to rest on.", "Lean BRANCHES on the frame first — then cover them with leaf bundles." } },
         };
 
@@ -51,10 +63,12 @@ namespace Forage
         {
             { "explore", "Have a wander! Get a feel for the clearing, the pond to the north-east, and the woods." },
             { "fire", "Gather tinder + dry sticks into the stone ring, then drill fast on the fireboard — or strike the two flint stones together hard, 2–3 times." },
-            { "water", "Dip the pot in the pond, boil it by the fire until it bubbles clear, then drink." },
+            { "water", "Fill the bucket at the pond, carry it back level, hang it on the hook over the burning fire to boil, then drink (raise it to your mouth or press B/Y)." },
             { "forage", "Pick a mushroom and read its tag. Brown or golden ones are your friends. Pale ones… are not." },
             { "shelter", "Lean 4 branches against the shelter frame at camp, then pile 3 leaf bundles on top." },
             { "wildlife", "Approach the rabbit or deer slowly — or freeze when a snake rears up. Calm wins." },
+            { "fish", "Reach into the pond and grab a fish, push a skewer into it, then rest the skewer across the forks over the burning fire. Eat it once it's cooked." },
+            { "dawn", "Get through the night: stay warm by the fire or sleep in your shelter. Hold your hand over your watch to skip to morning." },
             { "survive", "Night is coming. Keep the fire fed and the shelter ready — warmth is life out here." },
         };
 
